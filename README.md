@@ -3,6 +3,7 @@
 > **Evidence-grounded talent discovery system for semantic candidate retrieval, hybrid ranking, and AI-assisted candidate evaluation.**
 
 [![Live Demo](https://img.shields.io/badge/Live-Demo-FF4B4B?logo=streamlit\&logoColor=white)](https://rag-talent-search-engine.streamlit.app/)
+
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?logo=github\&logoColor=white)](https://github.com/AbdelrhmanAkl/rag-talent-search-engine)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python\&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?logo=streamlit\&logoColor=white)](https://streamlit.io/)
