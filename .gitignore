@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+.env
+.env.*
+!.env.example
+
+artifacts/gemini_cache/
+
+.streamlit/secrets.toml
+
+.DS_Store
+Thumbs.db
+
+# Local / sensitive resume artifacts
+artifacts/candidate_profiles.json
+artifacts/chunks.json
+artifacts/resume_faiss.index

@@ -1,0 +1,39 @@
+{
+  "project_name": "RAG-Powered Talent Search Engine",
+  "embedding": {
+    "model_name": "BAAI/bge-small-en-v1.5",
+    "dimension": 384,
+    "normalize_embeddings": true
+  },
+  "chunking": {
+    "chunk_size": 1000,
+    "chunk_overlap": 150,
+    "total_chunks": 1034
+  },
+  "retrieval": {
+    "default_top_k_chunks": 30,
+    "default_top_k_candidates": 5,
+    "default_final_top_k": 3,
+    "faiss_index_type": "IndexFlatIP"
+  },
+  "deduplication": {
+    "similarity_threshold": 0.95,
+    "comparison_method": "SequenceMatcher"
+  },
+  "reranking": {
+    "semantic_weight": 0.7,
+    "requirement_weight": 0.3,
+    "requirement_matching": "controlled technical vocabulary"
+  },
+  "dataset": {
+    "candidate_count": 220,
+    "chunk_count": 1034
+  },
+  "llm_evaluation": {
+    "provider": "Google Gemini",
+    "model": "gemini-3.6-flash",
+    "top_candidates_evaluated": 3,
+    "output_format": "JSON",
+    "cache_enabled": true
+  }
+}
