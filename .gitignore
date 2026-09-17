@@ -14,7 +14,3 @@ artifacts/gemini_cache/
 .DS_Store
 Thumbs.db
 
-# Local / sensitive resume artifacts
-artifacts/candidate_profiles.json
-artifacts/chunks.json
-artifacts/resume_faiss.index
