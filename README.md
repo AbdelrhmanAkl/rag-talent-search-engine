@@ -10,6 +10,8 @@
 [![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-0467DF)](https://github.com/facebookresearch/faiss)
 
 **Live Demo:** https://rag-talent-search-engine.streamlit.app/
+
+
 **Repository:** https://github.com/AbdelrhmanAkl/rag-talent-search-engine
 
 ---
