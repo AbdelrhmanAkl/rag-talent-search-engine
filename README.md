@@ -786,3 +786,19 @@ No open-source license is currently specified for this repository.
 The project is published primarily as a portfolio demonstration.
 
 Dataset usage remains subject to the original dataset's license and terms.
+
+
+---
+
+# Author
+
+**Abdelrahman Ahmed Akl**
+
+AI Engineer | NLP & RAG | LLMs & Agentic AI
+
+GitHub: https://github.com/AbdelrhmanAkl
+
+---
+
+**Built with Python, FAISS, Sentence Transformers, Google Gemini, and Streamlit.**
+
