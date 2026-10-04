@@ -1200,7 +1200,6 @@ st.markdown(
                 <span class="hero-chip">Evidence-grounded AI</span>
             </div>
         </section>
-
         <aside class="hero-side">
             <div class="hero-side-title">How the engine works</div>
             <div class="hero-stat">
