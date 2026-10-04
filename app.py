@@ -934,13 +934,11 @@ def render_candidate(
                         </div>
                     </div>
                 </div>
-
                 <div class="score-center">
                     <div class="score-label">Hybrid match</div>
                     <div class="score-value">{score:.3f}</div>
                     <div class="score-sub">relevance score</div>
                 </div>
-
                 <div>
                     <div class="mini-heading">Requirement fit</div>
                     {
