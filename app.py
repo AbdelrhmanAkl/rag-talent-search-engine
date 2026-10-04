@@ -36,12 +36,13 @@ st.markdown(
         --line: #E7EAF0;
         --surface: #FFFFFF;
         --page: #F7F9FC;
-        --primary: #5B5BF7;
-        --primary-dark: #4848D8;
-        --primary-soft: #F0F0FF;
+        --primary: #4F46E5;
+        --primary-dark: #4338CA;
+        --primary-soft: #EEF2FF;
         --success: #12B76A;
         --success-soft: #ECFDF3;
         --warning: #F79009;
+        --danger: #D92D20;
     }
 
     * {
@@ -57,7 +58,7 @@ st.markdown(
 
     .main .block-container {
         max-width: 1440px;
-        padding: 24px 42px 56px;
+        padding: 20px 38px 52px;
     }
 
     #MainMenu, footer { visibility: hidden; }
@@ -250,8 +251,8 @@ st.markdown(
         border: 1px solid var(--line);
         border-radius: 24px;
         background: linear-gradient(135deg, #FFFFFF 0%, #F8F8FF 100%);
-        padding: 36px 38px;
-        min-height: 255px;
+        padding: 30px 34px;
+        min-height: 225px;
         box-shadow: 0 16px 45px rgba(16,24,40,.045);
     }
 
@@ -283,7 +284,7 @@ st.markdown(
     .hero-title {
         max-width: 700px;
         font-family: "Space Grotesk", sans-serif;
-        font-size: clamp(2.25rem, 4vw, 3.55rem);
+        font-size: clamp(2rem, 3.4vw, 3.05rem);
         line-height: 1.02;
         font-weight: 700;
         letter-spacing: -.065em;
@@ -360,7 +361,7 @@ st.markdown(
         border-radius: 19px;
         padding: 20px;
         box-shadow: 0 8px 28px rgba(16,24,40,.03);
-        margin-bottom: 28px;
+        margin-bottom: 24px;
     }
 
     .panel-heading {
@@ -586,6 +587,27 @@ st.markdown(
         font-size: .62rem;
     }
 
+    .score-progress {
+        height: 6px;
+        width: 100%;
+        margin-top: 8px;
+        border-radius: 999px;
+        background: #EAECF0;
+        overflow: hidden;
+    }
+
+    .score-progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #6366F1, #4F46E5);
+    }
+
+    .score-percent {
+        color: var(--muted);
+        font-size: .61rem;
+        margin-top: 4px;
+    }
+
     .mini-heading {
         color: var(--text);
         font-size: .63rem;
@@ -640,6 +662,20 @@ st.markdown(
 
     .coverage-label { color: var(--muted); font-size: .65rem; font-weight: 700; }
     .coverage-value { color: var(--ink); font-size: .7rem; font-weight: 800; }
+
+    .coverage-track {
+        height: 6px;
+        margin-top: 8px;
+        border-radius: 999px;
+        background: #EAECF0;
+        overflow: hidden;
+    }
+
+    .coverage-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: #12B76A;
+    }
 
     .fit-box {
         background: linear-gradient(135deg, #F8F7FF, #FCFCFF);
@@ -893,6 +929,9 @@ def render_candidate(
         candidate.get("hybrid_score", 0.0) or 0.0
     )
 
+    # Scores are stored as normalized values in [0, 1].
+    score_percent = max(0.0, min(score, 1.0)) * 100.0
+
     requirement_coverage = candidate.get(
         "requirement_coverage"
     )
@@ -925,19 +964,22 @@ def render_candidate(
                 <div class="candidate-identity">
                     <div class="candidate-rank">{rank:02d}</div>
                     <div>
-                        <div class="candidate-label">Candidate profile</div>
+                        <div class="candidate-label">Ranked candidate</div>
                         <div class="candidate-name">
                             Candidate {candidate_id}
                         </div>
                         <div class="candidate-id">
-                            Profile ID · {candidate_id}
+                            Candidate ID · {candidate_id}
                         </div>
                     </div>
                 </div>
                 <div class="score-center">
                     <div class="score-label">Hybrid match</div>
-                    <div class="score-value">{score:.3f}</div>
-                    <div class="score-sub">relevance score</div>
+                    <div class="score-value">{score_percent:.1f}%</div>
+                    <div class="score-progress">
+                        <div class="score-progress-fill" style="width:{score_percent:.1f}%"></div>
+                    </div>
+                    <div class="score-percent">semantic relevance + requirement fit</div>
                 </div>
                 <div>
                     <div class="mini-heading">Requirement fit</div>
@@ -1007,6 +1049,9 @@ def render_candidate(
                             {safe_text(coverage_display)}
                         </div>
                     </div>
+                    <div class="coverage-track">
+                        <div class="coverage-fill" style="width:{coverage_value * 100:.1f}%"></div>
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -1073,20 +1118,6 @@ if "last_query" not in st.session_state:
 
 
 # =========================================================
-# SESSION STATE
-# =========================================================
-
-if "selected_query" not in st.session_state:
-    st.session_state["selected_query"] = ""
-
-if "search_result" not in st.session_state:
-    st.session_state["search_result"] = None
-
-if "last_query" not in st.session_state:
-    st.session_state["last_query"] = None
-
-
-# =========================================================
 # SIDEBAR
 # =========================================================
 
@@ -1094,7 +1125,7 @@ with st.sidebar:
     st.markdown(
         """
         <div class="sidebar-brand">
-            <div class="sidebar-logo">Q</div>
+            <div class="sidebar-logo">◈</div>
             <div class="sidebar-title">RAG Talent Search</div>
             <div class="sidebar-subtitle">
                 AI-powered candidate discovery using semantic retrieval,
@@ -1156,7 +1187,7 @@ st.markdown(
     """
     <div class="topbar">
         <div class="brand-row">
-            <div class="topbar-mark">Q</div>
+            <div class="topbar-mark">◈</div>
             <div>
                 <div class="topbar-title">RAG Talent Search</div>
                 <div class="topbar-subtitle">Intelligent candidate discovery workspace</div>
@@ -1188,9 +1219,9 @@ st.markdown(
                 Find the right talent, <span>faster.</span>
             </div>
             <div class="hero-copy">
-                Describe the candidate you need in natural language.
-                Search the talent knowledge base, rank relevant profiles,
-                and review evidence-backed requirement coverage.
+                Describe the candidate you need in natural language. The engine retrieves
+                relevant profiles, ranks them with a hybrid score, and explains the result
+                with evidence so recruiters stay in control.
             </div>
             <div class="hero-meta">
                 <span class="hero-chip">Semantic retrieval</span>
@@ -1274,7 +1305,36 @@ st.markdown(
             <span class="suggestion-chip">Computer Vision</span>
             <span class="suggestion-chip">RAG + LLM</span>
             <span class="suggestion-chip">Vector Search</span>
+            <span class="suggestion-chip">Natural Language</span>
         </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# Compact product-level pipeline explanation.
+st.markdown(
+    """
+    <div style="
+        display:flex;
+        align-items:center;
+        gap:8px;
+        flex-wrap:wrap;
+        margin:-10px 0 20px;
+        color:#667085;
+        font-size:.66rem;
+        font-weight:700;
+    ">
+        <span style="color:#4F46E5;">01 Retrieve</span>
+        <span>→</span>
+        <span style="color:#4F46E5;">02 Aggregate</span>
+        <span>→</span>
+        <span style="color:#4F46E5;">03 Rank</span>
+        <span>→</span>
+        <span style="color:#4F46E5;">04 Evaluate</span>
+        <span>→</span>
+        <span style="color:#12B76A;">05 Review</span>
     </div>
     """,
     unsafe_allow_html=True,
@@ -1323,7 +1383,7 @@ if result:
         <div class="results-head">
             <div>
                 <div class="section-kicker">Search results</div>
-                <div class="section-title">Relevant candidate profiles</div>
+                <div class="section-title">Best-matching candidate profiles</div>
                 <div class="section-copy">
                     Ranked for <b>{safe_text(last_query)}</b> using semantic relevance,
                     requirement coverage, and evidence-grounded evaluation.
@@ -1339,9 +1399,9 @@ if result:
 
     metrics = [
         (
-            "Candidates found",
+            "Displayed candidates",
             result.get("final_count", 0),
-            "Final returned profiles",
+            "Profiles shown to the recruiter",
         ),
         (
             "Retrieved chunks",
@@ -1351,7 +1411,7 @@ if result:
         (
             "Ranked candidates",
             result.get("ranked_count", 0),
-            "Profiles considered",
+            "Profiles considered for ranking",
         ),
         (
             "Unique profiles",
@@ -1438,7 +1498,7 @@ st.markdown(
     <div class="footer">
         <strong>RAG Talent Search</strong><br>
         Semantic Retrieval · Hybrid Ranking · Evidence-Grounded AI<br>
-        Built as a portfolio-ready intelligent talent discovery and decision-support experience.
+        AI talent discovery with semantic retrieval, hybrid ranking, and evidence-grounded evaluation.
     </div>
     """,
     unsafe_allow_html=True,
