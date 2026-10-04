@@ -1,5 +1,6 @@
 import html
-from typing import Any, Dict, List
+import re
+from typing import Any, Dict, List, Optional
 
 import streamlit as st
 
@@ -17,6 +18,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Candidates with coverage below this are flagged as "Weak match".
+WEAK_COVERAGE_THRESHOLD = 0.25
 
 
 # =========================================================
@@ -79,6 +82,35 @@ st.markdown(
 
     section[data-testid="stSidebar"] * {
         color: #F8FAFC !important;
+    }
+
+    /* FIX: sidebar buttons were white-on-white (empty looking) */
+    section[data-testid="stSidebar"] .stButton > button {
+        background: rgba(255,255,255,.06) !important;
+        border: 1px solid rgba(255,255,255,.12) !important;
+        color: #E5E7EB !important;
+        min-height: 0 !important;
+        padding: 10px 12px !important;
+        border-radius: 11px !important;
+        font-size: .74rem !important;
+        font-weight: 600 !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+        box-shadow: none !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button p,
+    section[data-testid="stSidebar"] .stButton > button div {
+        color: #E5E7EB !important;
+        text-align: left !important;
+        font-size: .74rem !important;
+        font-weight: 600 !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        background: rgba(91,91,247,.28) !important;
+        border-color: rgba(129,129,255,.55) !important;
+        transform: none !important;
     }
 
     .sidebar-brand {
@@ -355,13 +387,14 @@ st.markdown(
 
     /* ---------------- Search ---------------- */
 
-    .search-panel {
+    /* FIX: the search panel now really wraps the input, buttons and chips */
+    .st-key-search_panel {
         background: white;
         border: 1px solid var(--line);
         border-radius: 19px;
-        padding: 20px;
+        padding: 20px 20px 16px;
         box-shadow: 0 8px 28px rgba(16,24,40,.03);
-        margin-bottom: 24px;
+        margin-bottom: 14px;
     }
 
     .panel-heading {
@@ -375,7 +408,7 @@ st.markdown(
     .panel-description {
         color: var(--muted);
         font-size: .75rem;
-        margin-bottom: 14px;
+        margin-bottom: 6px;
     }
 
     div[data-baseweb="input"] {
@@ -422,7 +455,7 @@ st.markdown(
         display: flex;
         gap: 7px;
         flex-wrap: wrap;
-        margin-top: 12px;
+        margin-top: 4px;
     }
 
     .suggestion-chip {
@@ -433,6 +466,21 @@ st.markdown(
         padding: 6px 9px;
         font-size: .64rem;
     }
+
+    /* FIX: pipeline line no longer overlaps the chips */
+    .pipeline-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 6px 0 22px;
+        color: #667085;
+        font-size: .66rem;
+        font-weight: 700;
+    }
+
+    .pipeline-line .on { color: #4F46E5; }
+    .pipeline-line .done { color: #12B76A; }
 
     /* ---------------- Metrics ---------------- */
 
@@ -582,6 +630,8 @@ st.markdown(
         margin-top: 1px;
     }
 
+    .score-value.weak { color: #B54708; }
+
     .score-sub {
         color: var(--muted);
         font-size: .62rem;
@@ -602,10 +652,28 @@ st.markdown(
         background: linear-gradient(90deg, #6366F1, #4F46E5);
     }
 
+    .score-progress-fill.weak {
+        background: linear-gradient(90deg, #FDB022, #F79009);
+    }
+
     .score-percent {
         color: var(--muted);
         font-size: .61rem;
         margin-top: 4px;
+    }
+
+    .badge-weak {
+        display: inline-block;
+        margin-top: 7px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: #FFFAEB;
+        border: 1px solid #FEDF89;
+        color: #B54708;
+        font-size: .6rem;
+        font-weight: 800;
+        letter-spacing: .04em;
+        text-transform: uppercase;
     }
 
     .mini-heading {
@@ -638,6 +706,15 @@ st.markdown(
         background: #F8FAFC;
         color: #667085;
         border: 1px solid #EAECF0;
+    }
+
+    .no-match-box {
+        border: 1px dashed #D0D5DD;
+        border-radius: 12px;
+        padding: 10px;
+        text-align: center;
+        color: var(--muted);
+        font-size: .72rem;
     }
 
     .card-divider {
@@ -781,49 +858,36 @@ st.markdown(
 # HELPERS
 # =========================================================
 
+# Matches a "Firstname L." style name, e.g. "Kavya U."
+_INITIAL_NAME_RE = re.compile(r"\b[A-Z][a-z]{2,}\s[A-Z]\.(?=\s|,|$)")
+
+
 def safe_text(value: Any) -> str:
     if value is None:
         return ""
 
-    return html.escape(
-        str(value),
-        quote=True
-    )
+    return html.escape(str(value), quote=True)
 
 
 def normalize_items(value: Any) -> List[str]:
-    """
-    Normalize backend values into a clean list of strings.
-
-    Handles:
-    - None
-    - strings
-    - lists
-    - tuples
-    - sets
-    - unexpected scalar values
-    """
+    """Normalize backend values into a clean list of strings."""
 
     if value is None:
         return []
 
     if isinstance(value, str):
         value = value.strip()
-
         return [value] if value else []
 
     if isinstance(value, (list, tuple, set)):
         items = value
-
     else:
         value = str(value).strip()
-
         return [value] if value else []
 
     normalized = []
 
     for item in items:
-
         if item is None:
             continue
 
@@ -835,42 +899,58 @@ def normalize_items(value: Any) -> List[str]:
     return normalized
 
 
-def render_tags(
-    items: Any,
-    css_class: str
-) -> str:
+def anonymize_text(text: Any, candidate: Dict[str, Any]) -> str:
+    """
+    Defensive anonymization for AI-generated text.
 
+    The real fix belongs in the Gemini prompt/context builder (never send
+    names or contact info). This is a safety net on the UI side so a name
+    can never leak into the recruiter view.
+    """
+
+    if text is None:
+        return ""
+
+    cleaned = str(text)
+
+    for key in ("name", "full_name", "candidate_name"):
+        name = candidate.get(key)
+
+        if isinstance(name, str) and name.strip():
+            cleaned = re.sub(
+                re.escape(name.strip()),
+                "The candidate",
+                cleaned,
+                flags=re.IGNORECASE,
+            )
+
+    return _INITIAL_NAME_RE.sub("The candidate", cleaned)
+
+
+def parse_coverage(value: Any) -> Optional[float]:
+    """Return coverage as a fraction in [0, 1], or None if unavailable."""
+
+    if value is None:
+        return None
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if number > 1:
+        number = number / 100.0
+
+    return max(0.0, min(number, 1.0))
+
+
+def render_tags(items: Any, css_class: str) -> str:
     valid_items = normalize_items(items)
 
     return " ".join(
-        f'<span class="tag {css_class}">'
-        f'{safe_text(item)}'
-        f'</span>'
+        f'<span class="tag {css_class}">{safe_text(item)}</span>'
         for item in valid_items
     )
-
-
-def render_bullet_list(
-    items: Any,
-    empty_message: str
-) -> None:
-
-    normalized = normalize_items(items)
-
-    if normalized:
-
-        for item in normalized:
-
-            st.markdown(
-                f"- {safe_text(item)}",
-                unsafe_allow_html=True,
-            )
-
-    else:
-
-        st.caption(
-            empty_message
-        )
 
 
 @st.cache_resource(show_spinner=False)
@@ -878,10 +958,7 @@ def load_pipeline() -> SearchPipeline:
     return SearchPipeline()
 
 
-def execute_search(
-    query: str
-) -> Dict[str, Any]:
-
+def execute_search(query: str) -> Dict[str, Any]:
     pipeline = load_pipeline()
 
     pipeline_result = pipeline.search(
@@ -891,70 +968,62 @@ def execute_search(
         final_top_k=5,
     )
 
-    return SearchResultFormatter.format_search_result(
-        pipeline_result
-    )
+    return SearchResultFormatter.format_search_result(pipeline_result)
 
 
 def clear_results() -> None:
-
-    st.session_state.pop(
-        "search_result",
-        None,
-    )
-
-    st.session_state.pop(
-        "last_query",
-        None,
-    )
-
-    st.session_state.pop(
-        "search_error",
-        None,
-    )
+    for key in ("search_result", "last_query", "search_error"):
+        st.session_state.pop(key, None)
 
 
-def render_candidate(
-    candidate: Dict[str, Any]
-) -> None:
+def render_candidate(candidate: Dict[str, Any]) -> None:
     """Render one candidate using the portfolio-oriented card UI."""
 
     rank = int(candidate.get("rank", 0) or 0)
+    candidate_id = safe_text(candidate.get("candidate_id", "N/A"))
 
-    candidate_id = safe_text(
-        candidate.get("candidate_id", "N/A")
-    )
-
-    score = float(
-        candidate.get("hybrid_score", 0.0) or 0.0
-    )
-
-    # Scores are stored as normalized values in [0, 1].
+    score = float(candidate.get("hybrid_score", 0.0) or 0.0)
     score_percent = max(0.0, min(score, 1.0)) * 100.0
 
-    requirement_coverage = candidate.get(
-        "requirement_coverage"
-    )
+    coverage_value = parse_coverage(candidate.get("requirement_coverage"))
 
-    matched = normalize_items(
-        candidate.get("matched_requirements")
-    )
+    matched = normalize_items(candidate.get("matched_requirements"))
+    missing = normalize_items(candidate.get("missing_requirements"))
 
-    missing = normalize_items(
-        candidate.get("missing_requirements")
-    )
+    fit_summary = anonymize_text(candidate.get("fit_summary"), candidate)
 
-    fit_summary = candidate.get("fit_summary")
+    evidence_items = [
+        anonymize_text(item, candidate)
+        for item in normalize_items(candidate.get("matching_evidence"))
+    ]
+    gap_items = [
+        anonymize_text(item, candidate)
+        for item in normalize_items(candidate.get("gaps"))
+    ]
 
-    evidence_items = normalize_items(
-        candidate.get("matching_evidence")
-    )
+    bias_check = anonymize_text(candidate.get("bias_check"), candidate)
 
-    gap_items = normalize_items(
-        candidate.get("gaps")
-    )
+    # FIX: make a high score with zero requirement fit obvious to the user.
+    is_weak = (
+        coverage_value is not None
+        and coverage_value < WEAK_COVERAGE_THRESHOLD
+    ) or (coverage_value is None and not matched)
 
-    bias_check = candidate.get("bias_check")
+    weak_class = " weak" if is_weak else ""
+
+    if is_weak:
+        score_caption = "semantic similarity only · no requirement matched"
+        weak_badge = '<div class="badge-weak">Weak match</div>'
+    else:
+        score_caption = "semantic relevance + requirement fit"
+        weak_badge = ""
+
+    if matched:
+        requirement_html = render_tags(matched[:6], "tag-match")
+    else:
+        requirement_html = (
+            '<div class="no-match-box">No explicit matches identified.</div>'
+        )
 
     # Candidate overview
     st.markdown(
@@ -965,32 +1034,22 @@ def render_candidate(
                     <div class="candidate-rank">{rank:02d}</div>
                     <div>
                         <div class="candidate-label">Ranked candidate</div>
-                        <div class="candidate-name">
-                            Candidate {candidate_id}
-                        </div>
-                        <div class="candidate-id">
-                            Candidate ID · {candidate_id}
-                        </div>
+                        <div class="candidate-name">Candidate {candidate_id}</div>
+                        <div class="candidate-id">Candidate ID · {candidate_id}</div>
                     </div>
                 </div>
                 <div class="score-center">
                     <div class="score-label">Hybrid match</div>
-                    <div class="score-value">{score_percent:.1f}%</div>
+                    <div class="score-value{weak_class}">{score_percent:.1f}%</div>
                     <div class="score-progress">
-                        <div class="score-progress-fill" style="width:{score_percent:.1f}%"></div>
+                        <div class="score-progress-fill{weak_class}" style="width:{score_percent:.1f}%"></div>
                     </div>
-                    <div class="score-percent">semantic relevance + requirement fit</div>
+                    <div class="score-percent">{score_caption}</div>
+                    {weak_badge}
                 </div>
                 <div>
                     <div class="mini-heading">Requirement fit</div>
-                    {
-                        render_tags(
-                            matched[:6],
-                            "tag-match",
-                        )
-                        if matched
-                        else '<span class="empty-state" style="display:block;padding:8px;">No explicit matches identified.</span>'
-                    }
+                    {requirement_html}
                 </div>
             </div>
         </div>
@@ -998,7 +1057,7 @@ def render_candidate(
         unsafe_allow_html=True,
     )
 
-    # Requirement coverage + missing requirements
+    # Matching requirements + gaps (merged: tags + details in one place)
     left, right = st.columns(2, gap="large")
 
     with left:
@@ -1026,39 +1085,35 @@ def render_candidate(
                 render_tags(missing, "tag-missing"),
                 unsafe_allow_html=True,
             )
+        elif gap_items:
+            st.caption("See gap details below.")
         else:
             st.caption("No explicit requirement gaps identified.")
 
-    if requirement_coverage is not None:
-        try:
-            coverage_value = float(requirement_coverage)
+        # FIX: AI gaps live under the same heading instead of a duplicate block.
+        if gap_items:
+            with st.expander("Gap details"):
+                for gap in gap_items:
+                    st.markdown(
+                        f"- {safe_text(gap)}",
+                        unsafe_allow_html=True,
+                    )
 
-            if 0 <= coverage_value <= 1:
-                coverage_display = f"{coverage_value:.0%}"
-            else:
-                coverage_display = str(requirement_coverage)
-
-            st.markdown(
-                f"""
-                <div class="coverage-box">
-                    <div class="coverage-row">
-                        <div class="coverage-label">
-                            Explicit requirement coverage
-                        </div>
-                        <div class="coverage-value">
-                            {safe_text(coverage_display)}
-                        </div>
-                    </div>
-                    <div class="coverage-track">
-                        <div class="coverage-fill" style="width:{coverage_value * 100:.1f}%"></div>
-                    </div>
+    if coverage_value is not None:
+        st.markdown(
+            f"""
+            <div class="coverage-box">
+                <div class="coverage-row">
+                    <div class="coverage-label">Explicit requirement coverage</div>
+                    <div class="coverage-value">{coverage_value:.0%}</div>
                 </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        except (TypeError, ValueError):
-            pass
+                <div class="coverage-track">
+                    <div class="coverage-fill" style="width:{coverage_value * 100:.1f}%"></div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     # Gemini fit summary
     if fit_summary:
@@ -1066,9 +1121,7 @@ def render_candidate(
             f"""
             <div class="fit-box">
                 <div class="fit-heading">AI evidence summary</div>
-                <div class="fit-text">
-                    {safe_text(fit_summary)}
-                </div>
+                <div class="fit-text">{safe_text(fit_summary)}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1083,21 +1136,10 @@ def render_candidate(
                     unsafe_allow_html=True,
                 )
 
-    # AI-identified gaps
-    if gap_items:
-        with st.expander("AI-identified gaps"):
-            for gap in gap_items:
-                st.markdown(
-                    f"- {safe_text(gap)}",
-                    unsafe_allow_html=True,
-                )
-
     # Evaluation notes
     if bias_check:
         with st.expander("Evaluation notes"):
-            st.markdown(
-                safe_text(bias_check)
-            )
+            st.markdown(safe_text(bias_check))
 
 
 # =========================================================
@@ -1113,8 +1155,8 @@ if "search_result" not in st.session_state:
 if "last_query" not in st.session_state:
     st.session_state["last_query"] = None
 
-
-
+if "pending_search" not in st.session_state:
+    st.session_state["pending_search"] = False
 
 
 # =========================================================
@@ -1156,6 +1198,8 @@ with st.sidebar:
             use_container_width=True,
         ):
             st.session_state["selected_query"] = example
+            # Run the search right away when a suggestion is clicked.
+            st.session_state["pending_search"] = True
             st.rerun()
 
     st.markdown('<div class="sidebar-section">System status</div>', unsafe_allow_html=True)
@@ -1258,47 +1302,44 @@ st.markdown(
 # SEARCH PANEL
 # =========================================================
 
-st.markdown(
-    """
-    <div class="search-panel">
+# FIX: a keyed container replaces the split <div> across several st.markdown
+# calls (Streamlit closes each one separately, which broke the panel).
+with st.container(key="search_panel"):
+    st.markdown(
+        """
         <div class="panel-heading">Who are you looking for?</div>
         <div class="panel-description">
             Add skills, technologies, experience, or project requirements in plain language.
         </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-search_col, button_col, clear_col = st.columns([6.4, 1.15, .9], gap="small")
-
-with search_col:
-    query = st.text_input(
-        "Candidate search",
-        value=st.session_state.get("selected_query", ""),
-        placeholder="e.g. Python developer with NLP, RAG, SQL, and deep learning experience",
-        label_visibility="collapsed",
+        """,
+        unsafe_allow_html=True,
     )
 
-with button_col:
-    search_clicked = st.button(
-        "Search",
-        type="primary",
-        use_container_width=True,
-    )
+    search_col, button_col, clear_col = st.columns([6.4, 1.15, .9], gap="small")
 
-with clear_col:
-    clear_clicked = st.button(
-        "Clear",
-        use_container_width=True,
-    )
+    with search_col:
+        query = st.text_input(
+            "Candidate search",
+            value=st.session_state.get("selected_query", ""),
+            placeholder="e.g. Python developer with NLP, RAG, SQL, and deep learning experience",
+            label_visibility="collapsed",
+        )
 
-if clear_clicked:
-    clear_results()
-    st.session_state["selected_query"] = ""
-    st.rerun()
+    with button_col:
+        search_clicked = st.button(
+            "Search",
+            type="primary",
+            use_container_width=True,
+        )
 
-st.markdown(
-    """
+    with clear_col:
+        clear_clicked = st.button(
+            "Clear",
+            use_container_width=True,
+        )
+
+    st.markdown(
+        """
         <div class="suggestion-row">
             <span class="suggestion-chip">Python + ML</span>
             <span class="suggestion-chip">NLP + SQL</span>
@@ -1307,34 +1348,25 @@ st.markdown(
             <span class="suggestion-chip">Vector Search</span>
             <span class="suggestion-chip">Natural Language</span>
         </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
 
+if clear_clicked:
+    clear_results()
+    st.session_state["selected_query"] = ""
+    st.session_state["pending_search"] = False
+    st.rerun()
 
 # Compact product-level pipeline explanation.
 st.markdown(
     """
-    <div style="
-        display:flex;
-        align-items:center;
-        gap:8px;
-        flex-wrap:wrap;
-        margin:-10px 0 20px;
-        color:#667085;
-        font-size:.66rem;
-        font-weight:700;
-    ">
-        <span style="color:#4F46E5;">01 Retrieve</span>
-        <span>→</span>
-        <span style="color:#4F46E5;">02 Aggregate</span>
-        <span>→</span>
-        <span style="color:#4F46E5;">03 Rank</span>
-        <span>→</span>
-        <span style="color:#4F46E5;">04 Evaluate</span>
-        <span>→</span>
-        <span style="color:#12B76A;">05 Review</span>
+    <div class="pipeline-line">
+        <span class="on">01 Retrieve</span><span>→</span>
+        <span class="on">02 Aggregate</span><span>→</span>
+        <span class="on">03 Rank</span><span>→</span>
+        <span class="on">04 Evaluate</span><span>→</span>
+        <span class="done">05 Review</span>
     </div>
     """,
     unsafe_allow_html=True,
@@ -1345,7 +1377,10 @@ st.markdown(
 # SEARCH EXECUTION
 # =========================================================
 
-if search_clicked:
+run_search = search_clicked or st.session_state.get("pending_search", False)
+st.session_state["pending_search"] = False
+
+if run_search:
     if not query.strip():
         st.warning(
             "Enter a few skills, technologies, or requirements to start searching."
@@ -1420,10 +1455,7 @@ if result:
         ),
     ]
 
-    for col, (label, value, caption) in zip(
-        [c1, c2, c3, c4],
-        metrics,
-    ):
+    for col, (label, value, caption) in zip([c1, c2, c3, c4], metrics):
         with col:
             st.markdown(
                 f"""
