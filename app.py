@@ -13,6 +13,7 @@ from src.presentation.formatter import SearchResultFormatter
 
 st.set_page_config(
     page_title="RAG Talent Search",
+    page_icon="◈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -20,987 +21,369 @@ st.set_page_config(
 # Candidates with coverage below this are flagged as "Weak match".
 WEAK_COVERAGE_THRESHOLD = 0.25
 
+SUGGESTED_SEARCHES = [
+    "Python developer with NLP and SQL",
+    "Machine learning engineer with deep learning",
+    "Computer vision and OpenCV experience",
+    "RAG, LLM, and vector database skills",
+]
+
 # =========================================================
-# DESIGN SYSTEM
+# DESIGN SYSTEM  (light, calm, minimal)
 # =========================================================
 
 st.markdown(
     """
 <style>
-
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
 :root {
-    --ink: #14213D;
-    --text: #475467;
-    --muted: #667085;
-    --soft: #98A2B3;
-    --line: #E7EAF0;
+    --bg: #FAFAF8;
     --surface: #FFFFFF;
-    --page: #F7F9FC;
-    --primary: #4F46E5;
-    --primary-dark: #4338CA;
-    --primary-soft: #EEF2FF;
-    --success: #12B76A;
-    --success-soft: #ECFDF3;
-    --warning: #F79009;
-    --warning-soft: #FFFAEB;
-    --danger: #D92D20;
+    --ink: #1D1D2B;
+    --text: #4A4F5C;
+    --muted: #7B8191;
+    --faint: #A9AEBB;
+    --line: #ECECE8;
+    --line-strong: #DEDED8;
+    --accent: #5B5BD6;
+    --accent-dark: #4A4AC0;
+    --accent-soft: #F0F0FF;
+    --good: #2F9E6E;
+    --good-soft: #EEF8F2;
+    --warn: #B7791F;
+    --warn-soft: #FEF6E7;
+    --radius: 18px;
 }
 
-* {
-    font-family:
-        "DM Sans",
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
+html, body, .stApp, [class*="css"] {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .stApp {
     background:
-        radial-gradient(
-            circle at 88% 0%,
-            rgba(91, 91, 247, .08),
-            transparent 25%
-        ),
-        linear-gradient(
-            180deg,
-            #FBFCFF 0%,
-            var(--page) 100%
-        );
+        radial-gradient(900px 380px at 85% -5%, rgba(91, 91, 214, .07), transparent 60%),
+        radial-gradient(700px 320px at 0% 0%, rgba(47, 158, 110, .05), transparent 60%),
+        var(--bg);
     color: var(--ink);
 }
 
 .main .block-container {
-    max-width: 1440px;
-    padding: 20px 38px 52px;
+    max-width: 920px;
+    padding: 36px 24px 64px;
 }
 
-#MainMenu,
-footer {
-    visibility: hidden;
-}
+#MainMenu, footer { visibility: hidden; }
+header[data-testid="stHeader"] { background: transparent !important; }
 
-header {
-    background: transparent !important;
-}
-
-h1,
-h2,
-h3 {
-    font-family: "Space Grotesk", sans-serif !important;
+h1, h2, h3 {
+    font-family: "Plus Jakarta Sans", sans-serif !important;
     color: var(--ink) !important;
-    letter-spacing: -0.045em;
 }
 
-
-/* =====================================================
-   SIDEBAR
-   ===================================================== */
+/* ---------- Sidebar (light) ---------- */
 
 section[data-testid="stSidebar"] {
-    background: #111827;
-    border-right: 1px solid #1F2937;
+    background: #FFFFFF;
+    border-right: 1px solid var(--line);
 }
 
-section[data-testid="stSidebar"] * {
-    color: #F8FAFC !important;
+section[data-testid="stSidebar"] .block-container,
+section[data-testid="stSidebar"] > div {
+    padding-top: 1.2rem;
+}
+
+.sb-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 6px; }
+
+.logo {
+    width: 36px; height: 36px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #7C7CEB, #5B5BD6);
+    color: #fff; font-size: 17px; font-weight: 700;
+    box-shadow: 0 6px 16px rgba(91, 91, 214, .25);
+}
+
+.sb-title {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 700; font-size: .98rem; color: var(--ink);
+}
+
+.sb-sub { color: var(--muted); font-size: .76rem; line-height: 1.6; margin: 8px 0 22px; }
+
+.sb-label {
+    color: var(--faint); font-size: .66rem; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase; margin: 6px 0 10px;
 }
 
 section[data-testid="stSidebar"] .stButton > button {
-    background: rgba(255, 255, 255, .06) !important;
-    border: 1px solid rgba(255, 255, 255, .12) !important;
-    color: #E5E7EB !important;
-    min-height: 0 !important;
-    padding: 10px 12px !important;
-    border-radius: 11px !important;
-    font-size: .74rem !important;
-    font-weight: 600 !important;
-    justify-content: flex-start !important;
-    text-align: left !important;
-    box-shadow: none !important;
-}
-
-section[data-testid="stSidebar"] .stButton > button p,
-section[data-testid="stSidebar"] .stButton > button div {
-    color: #E5E7EB !important;
-    text-align: left !important;
-    font-size: .74rem !important;
-    font-weight: 600 !important;
+    justify-content: flex-start;
+    text-align: left;
+    min-height: 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #FAFAF8;
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: .8rem;
+    font-weight: 500;
+    box-shadow: none;
 }
 
 section[data-testid="stSidebar"] .stButton > button:hover {
-    background: rgba(91, 91, 247, .28) !important;
-    border-color: rgba(129, 129, 255, .55) !important;
-    transform: none !important;
+    background: var(--accent-soft);
+    border-color: #DCDCFA;
+    color: var(--accent-dark);
 }
 
-.sidebar-brand {
-    padding: 4px 0 30px;
+.sb-note {
+    margin-top: 22px; padding: 13px 14px; border-radius: 14px;
+    background: var(--accent-soft); color: var(--text);
+    font-size: .74rem; line-height: 1.65;
 }
 
-.sidebar-logo {
-    width: 46px;
-    height: 46px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 14px;
-    background: linear-gradient(
-        135deg,
-        #7777FF,
-        #4F46E5
-    );
-    color: #fff;
-    font-size: 21px;
-    font-weight: 800;
-    box-shadow: 0 12px 30px rgba(91, 91, 247, .28);
-    margin-bottom: 14px;
-}
+/* ---------- Hero ---------- */
 
-.sidebar-title {
-    font-family: "Space Grotesk", sans-serif;
-    font-size: 1.08rem;
-    font-weight: 700;
-}
+.hero { text-align: center; padding: 18px 0 26px; }
 
-.sidebar-subtitle {
-    color: #98A2B3 !important;
-    font-size: .74rem;
-    line-height: 1.55;
-    margin-top: 5px;
-}
-
-.sidebar-section {
-    color: #98A2B3 !important;
-    font-size: .65rem;
-    font-weight: 800;
-    letter-spacing: .13em;
-    text-transform: uppercase;
-    margin: 24px 0 9px;
-}
-
-.sidebar-nav {
-    padding: 10px 12px;
-    border-radius: 11px;
-    color: #E5E7EB !important;
-    font-size: .78rem;
-    margin-bottom: 6px;
-}
-
-.sidebar-nav.active {
-    background: rgba(91, 91, 247, .18);
-    color: #C7C7FF !important;
-}
-
-.sidebar-note {
-    background: rgba(255, 255, 255, .055);
-    border: 1px solid rgba(255, 255, 255, .09);
-    border-radius: 14px;
-    padding: 13px 14px;
-    color: #D0D5DD !important;
-    font-size: .72rem;
-    line-height: 1.65;
-}
-
-.sidebar-status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 0;
-    color: #D0D5DD !important;
-    font-size: .73rem;
-}
-
-.sidebar-status span {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #12B76A;
-    box-shadow: 0 0 0 4px rgba(18, 183, 106, .10);
-}
-
-
-/* =====================================================
-   TOPBAR
-   ===================================================== */
-
-.topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 26px;
-}
-
-.brand-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.topbar-mark {
-    width: 42px;
-    height: 42px;
-    border-radius: 13px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #5B5BF7;
-    color: white;
-    font-size: 20px;
-    font-weight: 800;
-    box-shadow: 0 10px 24px rgba(91, 91, 247, .22);
-}
-
-.topbar-title {
-    font-family: "Space Grotesk", sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--ink);
-}
-
-.topbar-subtitle {
-    color: var(--soft);
-    font-size: .69rem;
-    margin-top: 2px;
-}
-
-.topbar-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border: 1px solid #DCEFE5;
-    background: #F5FFFA;
-    border-radius: 999px;
-    color: #067647;
-    font-size: .69rem;
-    font-weight: 700;
-}
-
-.status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--success);
-}
-
-.tech-pill {
-    color: #667085;
-    font-size: .68rem;
-    padding-left: 3px;
-}
-
-
-/* =====================================================
-   HERO
-   ===================================================== */
-
-.hero-shell {
-    display: grid;
-    grid-template-columns:
-        minmax(0, 1.55fr)
-        minmax(300px, .75fr);
-    gap: 18px;
-    margin-bottom: 20px;
-}
-
-.hero {
-    position: relative;
-    overflow: hidden;
-    border: 1px solid var(--line);
-    border-radius: 24px;
-    background: linear-gradient(
-        135deg,
-        #FFFFFF 0%,
-        #F8F8FF 100%
-    );
-    padding: 30px 34px;
-    min-height: 225px;
-    box-shadow: 0 16px 45px rgba(16, 24, 40, .045);
-}
-
-.hero::after {
-    content: "";
-    position: absolute;
-    width: 270px;
-    height: 270px;
-    border-radius: 50%;
-    right: -120px;
-    top: -150px;
-    background: rgba(91, 91, 247, .08);
-    pointer-events: none;
-}
-
-.eyebrow {
-    display: inline-flex;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: #F0F0FF;
-    color: #5148E5;
-    font-size: .63rem;
-    font-weight: 800;
-    letter-spacing: .11em;
-    text-transform: uppercase;
-    margin-bottom: 14px;
+.hero-badge {
+    display: inline-block; padding: 5px 12px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: .72rem; font-weight: 600; margin-bottom: 16px;
 }
 
 .hero-title {
-    max-width: 700px;
-    font-family: "Space Grotesk", sans-serif;
-    font-size: clamp(2rem, 3.4vw, 3.05rem);
-    line-height: 1.02;
-    font-weight: 700;
-    letter-spacing: -.065em;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-size: clamp(2rem, 4.4vw, 3rem);
+    font-weight: 800; letter-spacing: -.04em; line-height: 1.08;
     color: var(--ink);
 }
 
-.hero-title span {
-    color: var(--primary);
-}
+.hero-title span { color: var(--accent); }
 
 .hero-copy {
-    max-width: 700px;
-    color: var(--muted);
-    font-size: .88rem;
-    line-height: 1.75;
-    margin-top: 15px;
+    max-width: 560px; margin: 14px auto 0;
+    color: var(--muted); font-size: .96rem; line-height: 1.7;
 }
 
-.hero-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-    margin-top: 19px;
-}
+/* ---------- Search ---------- */
 
-.hero-chip {
-    border: 1px solid #E1E2FF;
-    background: #FAFAFF;
-    color: #5148E5;
-    border-radius: 999px;
-    padding: 6px 10px;
-    font-size: .65rem;
-    font-weight: 700;
-}
-
-.hero-side {
-    border: 1px solid var(--line);
-    border-radius: 24px;
-    background: white;
-    padding: 22px;
-    box-shadow: 0 16px 45px rgba(16, 24, 40, .035);
-}
-
-.hero-side-title {
-    color: var(--soft);
-    font-size: .65rem;
-    font-weight: 800;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    margin-bottom: 14px;
-}
-
-.hero-stat {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px solid #F0F2F5;
-}
-
-.hero-stat:last-child {
-    border-bottom: 0;
-}
-
-.hero-stat-label {
-    color: var(--muted);
-    font-size: .73rem;
-}
-
-.hero-stat-value {
-    font-family: "Space Grotesk", sans-serif;
-    color: var(--ink);
-    font-weight: 700;
-    font-size: .85rem;
-}
-
-
-/* =====================================================
-   SEARCH
-   ===================================================== */
-
-.st-key-search_panel {
-    background: white;
-    border: 1px solid var(--line);
-    border-radius: 19px;
-    padding: 20px 20px 16px;
-    box-shadow: 0 8px 28px rgba(16, 24, 40, .03);
-    margin-bottom: 14px;
-}
-
-.panel-heading {
-    font-family: "Space Grotesk", sans-serif;
-    font-size: .98rem;
-    font-weight: 700;
-    color: var(--ink);
-    margin-bottom: 3px;
-}
-
-.panel-description {
-    color: var(--muted);
-    font-size: .75rem;
-    margin-bottom: 6px;
-}
-
-/* Streamlit wraps the <input> in a "base-input" div that keeps the
-   dark-theme background; force it to be light/transparent. */
-div[data-baseweb="input"],
-div[data-baseweb="base-input"] {
-    background: #FCFCFD !important;
+div[data-baseweb="input"], div[data-baseweb="base-input"] {
+    background: #FFFFFF !important;
 }
 
 div[data-baseweb="input"] {
-    border: 1px solid #D0D5DD !important;
-    border-radius: 12px !important;
+    border: 1px solid var(--line-strong) !important;
+    border-radius: 16px !important;
     min-height: 54px;
-    box-shadow: none !important;
+    box-shadow: 0 6px 22px rgba(29, 29, 43, .04) !important;
+    transition: all .18s ease;
 }
 
 div[data-baseweb="input"]:focus-within {
-    border-color: var(--primary) !important;
-    box-shadow:
-        0 0 0 4px rgba(91, 91, 247, .09) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 4px rgba(91, 91, 214, .10), 0 6px 22px rgba(29, 29, 43, .05) !important;
 }
 
 div[data-baseweb="input"] input {
     background: transparent !important;
     color: var(--ink) !important;
     -webkit-text-fill-color: var(--ink) !important;
-    font-size: .86rem !important;
+    font-size: .95rem !important;
+    padding-left: 16px !important;
 }
 
 div[data-baseweb="input"] input::placeholder {
-    color: var(--soft) !important;
-    -webkit-text-fill-color: var(--soft) !important;
+    color: var(--faint) !important;
+    -webkit-text-fill-color: var(--faint) !important;
 }
 
-/* Default (secondary) buttons in the main area, e.g. "Clear" */
 .stButton > button {
     min-height: 54px;
-    border-radius: 12px !important;
-    font-weight: 700 !important;
-    font-size: .79rem !important;
-    border: 1px solid #D0D5DD !important;
-    background: #FFFFFF !important;
-    color: var(--ink) !important;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: .88rem;
+    border: 1px solid var(--line-strong);
+    background: #FFFFFF;
+    color: var(--text);
     transition: all .18s ease;
 }
 
-.stButton > button p,
-.stButton > button div {
-    color: inherit !important;
-}
+.stButton > button p, .stButton > button div { color: inherit !important; }
 
-.stButton > button:hover {
-    background: #F9FAFB !important;
-    border-color: #B8BFCC !important;
-}
+.stButton > button:hover { border-color: #C9C9C2; background: #FAFAF8; }
 
 .stButton > button[kind="primary"] {
-    background: var(--primary) !important;
-    border-color: var(--primary) !important;
-    color: white !important;
-    box-shadow:
-        0 9px 22px rgba(91, 91, 247, .18);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(91, 91, 214, .22);
 }
 
 .stButton > button[kind="primary"]:hover {
-    background: var(--primary-dark) !important;
-    border-color: var(--primary-dark) !important;
+    background: var(--accent-dark);
+    border-color: var(--accent-dark);
     transform: translateY(-1px);
 }
 
-.suggestion-row {
-    display: flex;
-    gap: 7px;
-    flex-wrap: wrap;
-    margin-top: 4px;
-}
-
-.suggestion-chip {
-    border: 1px solid #E4E7EC;
-    background: #FAFBFC;
-    color: #667085;
+/* Quick-search chips under the search box */
+.st-key-chips .stButton > button {
+    min-height: 0;
+    padding: 6px 12px;
     border-radius: 999px;
-    padding: 6px 9px;
-    font-size: .64rem;
-}
-
-.pipeline-line {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin: 6px 0 22px;
-    color: #667085;
-    font-size: .66rem;
-    font-weight: 700;
-}
-
-.pipeline-line .on {
-    color: #4F46E5;
-}
-
-.pipeline-line .done {
-    color: #12B76A;
-}
-
-
-/* =====================================================
-   METRICS
-   ===================================================== */
-
-.metric-card {
-    background: white;
+    background: rgba(255, 255, 255, .8);
     border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 16px 17px;
-    min-height: 98px;
-    box-shadow: 0 5px 18px rgba(16, 24, 40, .025);
-}
-
-.metric-label {
-    color: var(--soft);
-    font-size: .66rem;
-    font-weight: 700;
-}
-
-.metric-value {
-    font-family: "Space Grotesk", sans-serif;
-    color: var(--ink);
-    font-size: 1.55rem;
-    font-weight: 700;
-    margin-top: 6px;
-    letter-spacing: -.04em;
-}
-
-.metric-caption {
-    color: var(--muted);
-    font-size: .63rem;
-    margin-top: 3px;
-}
-
-
-/* =====================================================
-   RESULTS
-   ===================================================== */
-
-.results-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: end;
-    margin: 28px 0 12px;
-}
-
-.section-kicker {
-    color: var(--primary);
-    font-size: .64rem;
-    font-weight: 800;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-}
-
-.section-title {
-    font-family: "Space Grotesk", sans-serif;
-    color: var(--ink);
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -.04em;
-}
-
-.section-copy {
     color: var(--muted);
     font-size: .74rem;
-    line-height: 1.6;
-    margin-top: 4px;
-}
-
-.candidate-card {
-    background: white;
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    padding: 20px;
-    margin: 13px 0;
-    box-shadow: 0 7px 24px rgba(16, 24, 40, .028);
-}
-
-.candidate-top {
-    display: grid;
-    grid-template-columns:
-        1.25fr .7fr 1.15fr;
-    gap: 20px;
-    align-items: center;
-}
-
-.candidate-identity {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-}
-
-.candidate-rank {
-    width: 43px;
-    height: 43px;
-    border-radius: 13px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--primary-soft);
-    border: 1px solid #E4E1FF;
-    color: var(--primary);
-    font-family: "Space Grotesk", sans-serif;
-    font-size: .82rem;
-    font-weight: 700;
-}
-
-.candidate-label {
-    color: var(--soft);
-    font-size: .59rem;
-    font-weight: 800;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-}
-
-.candidate-name {
-    color: var(--ink);
-    font-family: "Space Grotesk", sans-serif;
-    font-size: 1.03rem;
-    font-weight: 700;
-    margin-top: 3px;
-}
-
-.candidate-id {
-    color: var(--muted);
-    font-size: .67rem;
-    margin-top: 2px;
-}
-
-.score-center {
-    text-align: center;
-    border-left: 1px solid #F0F2F5;
-    border-right: 1px solid #F0F2F5;
-    padding: 4px 15px;
-}
-
-.score-label {
-    color: var(--soft);
-    font-size: .59rem;
-    font-weight: 800;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-}
-
-.score-value {
-    color: var(--primary);
-    font-family: "Space Grotesk", sans-serif;
-    font-size: 1.55rem;
-    font-weight: 700;
-    letter-spacing: -.04em;
-    margin-top: 1px;
-}
-
-.score-value.weak {
-    color: #B54708;
-}
-
-.score-sub {
-    color: var(--muted);
-    font-size: .62rem;
-}
-
-.score-progress {
-    height: 6px;
-    width: 100%;
-    margin-top: 8px;
-    border-radius: 999px;
-    background: #EAECF0;
-    overflow: hidden;
-}
-
-.score-progress-fill {
-    height: 100%;
-    border-radius: 999px;
-    background:
-        linear-gradient(
-            90deg,
-            #6366F1,
-            #4F46E5
-        );
-}
-
-.score-progress-fill.weak {
-    background:
-        linear-gradient(
-            90deg,
-            #FDB022,
-            #F79009
-        );
-}
-
-.score-percent {
-    color: var(--muted);
-    font-size: .61rem;
-    margin-top: 4px;
-}
-
-.badge-weak {
-    display: inline-block;
-    margin-top: 7px;
-    padding: 3px 9px;
-    border-radius: 999px;
-    background: #FFFAEB;
-    border: 1px solid #FEDF89;
-    color: #B54708;
-    font-size: .6rem;
-    font-weight: 800;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-}
-
-.mini-heading {
-    color: var(--text);
-    font-size: .63rem;
-    font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-}
-
-.tag {
-    display: inline-block;
-    border-radius: 8px;
-    padding: 5px 8px;
-    margin: 0 4px 4px 0;
-    font-size: .64rem;
-    font-weight: 700;
-    line-height: 1.3;
+    font-weight: 500;
     white-space: nowrap;
 }
 
-.tag-match {
-    background: #F0FDF4;
-    color: #027A48;
-    border: 1px solid #ABEFC6;
+.st-key-chips .stButton > button:hover {
+    background: var(--accent-soft);
+    border-color: #DCDCFA;
+    color: var(--accent-dark);
 }
 
-.tag-missing {
-    background: #F8FAFC;
-    color: #667085;
-    border: 1px solid #EAECF0;
+/* ---------- Results ---------- */
+
+.results-head { margin: 34px 0 14px; }
+
+.results-title {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-size: 1.3rem; font-weight: 700; letter-spacing: -.02em; color: var(--ink);
 }
 
-.no-match-box {
-    border: 1px dashed #D0D5DD;
-    border-radius: 12px;
-    padding: 10px;
-    text-align: center;
-    color: var(--muted);
-    font-size: .72rem;
+.results-sub { color: var(--muted); font-size: .82rem; margin-top: 4px; line-height: 1.6; }
+
+.notice {
+    margin: 4px 0 14px; padding: 11px 14px; border-radius: 12px;
+    background: var(--warn-soft); color: #8A5A12;
+    font-size: .8rem; line-height: 1.55;
 }
 
-.coverage-box {
-    margin-top: 13px;
-    padding: 10px 12px;
-    border-radius: 11px;
-    background: #F8F9FC;
-    border: 1px solid #EAECF0;
+/* Candidate card = a bordered Streamlit container */
+[class*="st-key-cand_"] {
+    background: var(--surface);
+    border: 1px solid var(--line) !important;
+    border-radius: var(--radius) !important;
+    padding: 6px 8px 4px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 18px rgba(29, 29, 43, .035);
+    transition: box-shadow .2s ease, border-color .2s ease;
 }
 
-.coverage-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+[class*="st-key-cand_"]:hover {
+    border-color: var(--line-strong) !important;
+    box-shadow: 0 10px 30px rgba(29, 29, 43, .06);
 }
 
-.coverage-label {
-    color: var(--muted);
-    font-size: .65rem;
-    font-weight: 700;
+.cand-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+
+.cand-id { display: flex; align-items: center; gap: 13px; min-width: 0; }
+
+.rank {
+    width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent-soft); color: var(--accent);
+    font-family: "Plus Jakarta Sans", sans-serif; font-weight: 700; font-size: .85rem;
 }
 
-.coverage-value {
-    color: var(--ink);
-    font-size: .7rem;
-    font-weight: 800;
+.cand-name {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 700; font-size: 1.02rem; color: var(--ink);
 }
 
-.coverage-track {
-    height: 6px;
-    margin-top: 8px;
-    border-radius: 999px;
-    background: #EAECF0;
-    overflow: hidden;
+.cand-meta { color: var(--muted); font-size: .74rem; margin-top: 2px; }
+
+.score { text-align: right; min-width: 150px; }
+
+.score-num {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 800; font-size: 1.5rem; letter-spacing: -.03em; color: var(--accent);
+    line-height: 1;
 }
 
-.coverage-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: #12B76A;
+.score-num.weak { color: var(--warn); }
+
+.score-bar {
+    height: 5px; border-radius: 999px; background: #F0F0EC;
+    overflow: hidden; margin-top: 8px;
 }
 
-.fit-box {
-    background:
-        linear-gradient(
-            135deg,
-            #F8F7FF,
-            #FCFCFF
-        );
-    border: 1px solid #E9E7FF;
-    border-radius: 13px;
-    padding: 13px 15px;
-    margin-top: 14px;
+.score-fill { height: 100%; border-radius: 999px; background: var(--accent); }
+.score-fill.weak { background: #E5A93C; }
+
+.score-cap { color: var(--faint); font-size: .66rem; margin-top: 5px; }
+
+.badge-weak {
+    display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 999px;
+    background: var(--warn-soft); color: var(--warn);
+    font-size: .64rem; font-weight: 700; vertical-align: middle;
 }
 
-.fit-heading {
-    color: var(--primary);
-    font-size: .63rem;
-    font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
+.summary {
+    margin-top: 14px; padding: 13px 15px; border-radius: 13px;
+    background: #FAFAF8; color: var(--text);
+    font-size: .85rem; line-height: 1.75;
 }
 
-.fit-text {
-    color: var(--text);
-    font-size: .75rem;
-    line-height: 1.7;
+.tag-group { margin-top: 14px; }
+
+.tag-label {
+    color: var(--faint); font-size: .66rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; margin-bottom: 7px;
 }
+
+.tag {
+    display: inline-block; border-radius: 999px; padding: 4px 11px;
+    margin: 0 5px 5px 0; font-size: .74rem; font-weight: 500; line-height: 1.4;
+}
+
+.tag-match { background: var(--good-soft); color: #23754F; }
+.tag-missing { background: #F4F4F0; color: var(--muted); }
+
+.empty-inline { color: var(--faint); font-size: .78rem; }
+
+.detail-list { margin: 0; padding-left: 18px; color: var(--text); font-size: .82rem; line-height: 1.75; }
 
 div[data-testid="stExpander"] {
-    background: #FCFCFD !important;
-    border: 1px solid #EAECF0 !important;
-    border-radius: 11px !important;
-    margin-top: 8px;
+    background: transparent !important;
+    border: none !important;
+    border-top: 1px solid var(--line) !important;
+    border-radius: 0 !important;
+    margin-top: 10px;
 }
 
 div[data-testid="stExpander"] summary {
-    color: var(--text) !important;
-    font-size: .73rem;
-    font-weight: 700;
+    color: var(--muted) !important; font-size: .8rem; font-weight: 600;
 }
 
+div[data-testid="stExpander"] summary:hover { color: var(--accent) !important; }
 
-/* =====================================================
-   PROVIDER STATUS
-   ===================================================== */
-
-.evaluation-banner {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 11px 13px;
-    border-radius: 11px;
-    margin-top: 16px;
-    background: #F8F9FC;
-    border: 1px solid #EAECF0;
-    color: var(--muted);
-    font-size: .69rem;
-    font-weight: 600;
+.status-line {
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+    margin-top: 22px; color: var(--muted); font-size: .76rem;
 }
 
-.evaluation-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--success);
-    flex-shrink: 0;
-}
-
-.evaluation-dot.warning {
-    background: var(--warning);
-}
-
-.evaluation-provider {
-    color: var(--ink);
-    font-weight: 800;
-}
-
-
-/* =====================================================
-   EMPTY / FOOTER
-   ===================================================== */
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.dot.warn { background: #E5A93C; }
 
 .empty-state {
-    border: 1px dashed #D0D5DD;
-    border-radius: 17px;
-    background: rgba(255, 255, 255, .7);
-    padding: 42px 20px;
-    text-align: center;
-    color: var(--muted);
-    font-size: .78rem;
+    border: 1px dashed var(--line-strong); border-radius: var(--radius);
+    padding: 44px 20px; text-align: center; color: var(--muted);
+    font-size: .9rem; background: rgba(255, 255, 255, .6);
 }
 
 .footer {
-    border-top: 1px solid var(--line);
-    margin-top: 42px;
-    padding-top: 18px;
-    text-align: center;
-    color: var(--soft);
-    font-size: .67rem;
-    line-height: 1.8;
+    margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line);
+    text-align: center; color: var(--faint); font-size: .72rem; line-height: 1.8;
 }
 
-.footer strong {
-    color: var(--muted);
+@media (max-width: 700px) {
+    .main .block-container { padding: 22px 14px 48px; }
+    .cand-head { flex-direction: column; align-items: flex-start; }
+    .score { text-align: left; width: 100%; }
 }
-
-
-/* =====================================================
-   RESPONSIVE
-   ===================================================== */
-
-@media (max-width: 950px) {
-
-    .main .block-container {
-        padding: 20px 18px 45px;
-    }
-
-    .hero-shell {
-        grid-template-columns: 1fr;
-    }
-
-    .candidate-top {
-        grid-template-columns: 1fr;
-    }
-
-    .score-center {
-        border-left: 0;
-        border-right: 0;
-        border-top: 1px solid #F0F2F5;
-        border-bottom: 1px solid #F0F2F5;
-        padding: 12px 0;
-    }
-
-    .topbar {
-        align-items: flex-start;
-        gap: 15px;
-        flex-direction: column;
-    }
-
-    .topbar-right {
-        flex-wrap: wrap;
-    }
-}
-
 </style>
 """,
     unsafe_allow_html=True,
@@ -1010,55 +393,28 @@ div[data-testid="stExpander"] summary {
 # HELPERS
 # =========================================================
 
-
-_INITIAL_NAME_RE = re.compile(
-    r"\b[A-Z][a-z]{2,}\s[A-Z].(?=\s|,|$)"
-)
+_INITIAL_NAME_RE = re.compile(r"\b[A-Z][a-z]{2,}\s[A-Z].(?=\s|,|$)")
 
 
 def clean_html(markup: str) -> str:
-    """
-    Make an HTML snippet safe for st.markdown.
-
-    Markdown ends an HTML block at the first blank line, and any line
-    indented by 4+ spaces after that is rendered as a code block. That
-    is exactly what happened when an optional fragment (like the weak
-    badge) was an empty string and left a whitespace-only line behind.
-
-    Stripping every line and dropping empty ones removes both problems.
-    """
+    """Strip every line and drop empty ones so Markdown never turns
+    part of an HTML snippet into a code block."""
     return "\n".join(
-        line.strip()
-        for line in markup.splitlines()
-        if line.strip()
+        line.strip() for line in markup.splitlines() if line.strip()
     )
 
 
 def render_html(markup: str) -> None:
-    """Render an HTML snippet through st.markdown, safely."""
-    st.markdown(
-        clean_html(markup),
-        unsafe_allow_html=True,
-    )
+    st.markdown(clean_html(markup), unsafe_allow_html=True)
 
 
 def safe_text(value: Any) -> str:
-    """
-    Safely escape arbitrary values before rendering as HTML.
-    """
     if value is None:
         return ""
-
-    return html.escape(
-        str(value),
-        quote=True,
-    )
+    return html.escape(str(value), quote=True)
 
 
 def normalize_items(value: Any) -> List[str]:
-    """
-    Normalize backend values into a clean list of strings.
-    """
     if value is None:
         return []
 
@@ -1073,42 +429,24 @@ def normalize_items(value: Any) -> List[str]:
         return [value] if value else []
 
     normalized = []
-
     for item in items:
         if item is None:
             continue
-
         item = str(item).strip()
-
         if item:
             normalized.append(item)
-
     return normalized
 
 
-def anonymize_text(
-    text: Any,
-    candidate: Dict[str, Any],
-) -> str:
-    """
-    Defensive anonymization for AI-generated text.
-
-    The actual privacy protection belongs in the evaluator
-    prompt and context builder. This function acts as a UI-side
-    safety net.
-    """
+def anonymize_text(text: Any, candidate: Dict[str, Any]) -> str:
+    """UI-side safety net; real anonymization belongs in the evaluator."""
     if text is None:
         return ""
 
     cleaned = str(text)
 
-    for key in (
-        "name",
-        "full_name",
-        "candidate_name",
-    ):
+    for key in ("name", "full_name", "candidate_name"):
         name = candidate.get(key)
-
         if isinstance(name, str) and name.strip():
             cleaned = re.sub(
                 re.escape(name.strip()),
@@ -1117,84 +455,64 @@ def anonymize_text(
                 flags=re.IGNORECASE,
             )
 
-    return _INITIAL_NAME_RE.sub(
-        "The candidate",
-        cleaned,
-    )
+    return _INITIAL_NAME_RE.sub("The candidate", cleaned)
 
 
-def parse_coverage(
-    value: Any,
-) -> Optional[float]:
-    """
-    Return coverage as a fraction in [0, 1].
-    """
+def parse_coverage(value: Any) -> Optional[float]:
     if value is None:
         return None
-
     try:
         number = float(value)
     except (TypeError, ValueError):
         return None
-
     if number > 1:
         number = number / 100.0
-
-    return max(
-        0.0,
-        min(number, 1.0),
-    )
+    return max(0.0, min(number, 1.0))
 
 
-def render_tags(
-    items: Any,
-    css_class: str,
-) -> str:
-    valid_items = normalize_items(items)
-
+def render_tags(items: Any, css_class: str) -> str:
     return " ".join(
-        f'<span class="tag {css_class}">'
-        f"{safe_text(item)}"
-        "</span>"
-        for item in valid_items
+        f'<span class="tag {css_class}">{safe_text(item)}</span>'
+        for item in normalize_items(items)
     )
 
 
 @st.cache_resource(show_spinner=False)
 def load_pipeline() -> SearchPipeline:
-    """
-    Keep one SearchPipeline instance per Streamlit process.
-    """
     return SearchPipeline()
 
 
-def execute_search(
-    query: str,
-) -> Dict[str, Any]:
+def execute_search(query: str) -> Dict[str, Any]:
     pipeline = load_pipeline()
-
     pipeline_result = pipeline.search(
         query,
         top_k_chunks=30,
         top_k_candidates=10,
         final_top_k=5,
     )
-
-    return SearchResultFormatter.format_search_result(
-        pipeline_result,
-    )
+    return SearchResultFormatter.format_search_result(pipeline_result)
 
 
-def clear_results() -> None:
-    for key in (
-        "search_result",
-        "last_query",
-        "search_error",
-    ):
-        st.session_state.pop(
-            key,
-            None,
-        )
+# ---------------------------------------------------------
+# Callbacks (they run before the script reruns, so they can
+# safely modify the text input's session-state value)
+# ---------------------------------------------------------
+
+
+def use_suggestion(text: str) -> None:
+    st.session_state["query_input"] = text
+    st.session_state["pending_search"] = True
+
+
+def request_search() -> None:
+    st.session_state["pending_search"] = True
+
+
+def clear_all() -> None:
+    st.session_state["query_input"] = ""
+    st.session_state["pending_search"] = False
+    for key in ("search_result", "last_query", "search_error"):
+        st.session_state.pop(key, None)
 
 
 # =========================================================
@@ -1202,119 +520,57 @@ def clear_results() -> None:
 # =========================================================
 
 
-def get_llm_source(
-    result: Dict[str, Any],
-) -> str:
-    """
-    Return the current evaluation source.
-
-    Possible values:
-        groq
-        gemini
-        cache
-        unavailable
-    """
-    source = result.get("llm_source")
-
-    if source is None:
-        source = result.get("gemini_source")
-
-    if source is None:
-        source = result.get("evaluation_source")
-
+def get_llm_source(result: Dict[str, Any]) -> str:
+    source = (
+        result.get("llm_source")
+        or result.get("gemini_source")
+        or result.get("evaluation_source")
+    )
     if not source:
         return "unavailable"
-
     return str(source).strip().lower()
 
 
-def get_cached_provider(
-    result: Dict[str, Any],
-) -> str:
-    """
-    Return the original provider when the current result
-    was served from the local cache.
-    """
+def get_cached_provider(result: Dict[str, Any]) -> str:
     cached_source = result.get("cached_source")
-
-    if not cached_source:
-        return ""
-
-    return str(cached_source).strip().lower()
+    return str(cached_source).strip().lower() if cached_source else ""
 
 
-def provider_display_name(
-    source: str,
-    cached_provider: str = "",
-) -> str:
-    """
-    Convert internal provider identifiers into
-    human-readable UI labels.
-    """
+def provider_display_name(source: str, cached_provider: str = "") -> str:
     if source == "groq":
         return "Groq"
-
     if source == "gemini":
         return "Gemini fallback"
-
     if source == "cache":
         if cached_provider == "groq":
             return "Local cache · originally Groq"
-
         if cached_provider == "gemini":
             return "Local cache · originally Gemini"
-
         return "Local cache"
-
     if source in {"live", "api"}:
         return "Live LLM"
-
     if source == "unavailable":
         return "Unavailable"
-
     return source.replace("_", " ").title()
 
 
-def provider_status_text(
-    source: str,
-    cached_provider: str = "",
-) -> str:
-    """
-    Return the provider status message shown below results.
-    """
+def provider_status_text(source: str, cached_provider: str = "") -> str:
     if source == "groq":
-        return (
-            "AI evidence evaluation generated by "
-            "Groq (primary provider)"
-        )
-
+        return "Evidence evaluation by Groq"
     if source == "gemini":
-        return (
-            "AI evidence evaluation generated by "
-            "Gemini after Groq fallback"
-        )
-
+        return "Evidence evaluation by Gemini (Groq fallback)"
     if source == "cache":
-        if cached_provider == "groq":
+        if cached_provider:
             return (
-                "AI evidence evaluation served from local cache "
-                "· originally generated by Groq"
+                "Evidence evaluation from local cache · originally "
+                f"{provider_display_name(cached_provider)}"
             )
-
-        if cached_provider == "gemini":
-            return (
-                "AI evidence evaluation served from local cache "
-                "· originally generated by Gemini"
-            )
-
-        return "AI evidence evaluation served from local cache"
-
+        return "Evidence evaluation from local cache"
     if source in {"live", "api"}:
-        return "AI evidence evaluation generated live"
-
+        return "Evidence evaluation generated live"
     return (
-        "AI evidence evaluation unavailable; "
-        "retrieval and ranking results remain available"
+        "AI evaluation unavailable; retrieval and ranking "
+        "results are still shown"
     )
 
 
@@ -1322,371 +578,129 @@ def provider_status_text(
 # CANDIDATE RENDERING
 # =========================================================
 
-def render_candidate(
-    candidate: Dict[str, Any]
-) -> None:
-    """
-    Render one candidate using the portfolio-oriented UI.
-    """
 
-    rank = int(
-        candidate.get(
-            "rank",
-            0
-        ) or 0
-    )
+def candidate_is_weak(candidate: Dict[str, Any]) -> bool:
+    coverage = parse_coverage(candidate.get("requirement_coverage"))
+    matched = normalize_items(candidate.get("matched_requirements"))
+    if coverage is not None:
+        return coverage < WEAK_COVERAGE_THRESHOLD
+    return not matched
 
-    candidate_id = safe_text(
-        candidate.get(
-            "candidate_id",
-            "N/A"
-        )
-    )
+
+def render_candidate(candidate: Dict[str, Any], position: int) -> None:
+    rank = int(candidate.get("rank", position) or position)
+    candidate_id = safe_text(candidate.get("candidate_id", "N/A"))
 
     try:
-        score = float(
-            candidate.get(
-                "hybrid_score",
-                0.0
-            ) or 0.0
-        )
-    except (
-        TypeError,
-        ValueError
-    ):
+        score = float(candidate.get("hybrid_score", 0.0) or 0.0)
+    except (TypeError, ValueError):
         score = 0.0
+    score_percent = max(0.0, min(score, 1.0)) * 100.0
 
-    score_percent = (
-        max(
-            0.0,
-            min(score, 1.0)
-        )
-        * 100.0
-    )
+    coverage = parse_coverage(candidate.get("requirement_coverage"))
+    matched = normalize_items(candidate.get("matched_requirements"))
+    missing = normalize_items(candidate.get("missing_requirements"))
 
-    coverage_value = parse_coverage(
-        candidate.get(
-            "requirement_coverage"
-        )
-    )
-
-    matched = normalize_items(
-        candidate.get(
-            "matched_requirements"
-        )
-    )
-
-    missing = normalize_items(
-        candidate.get(
-            "missing_requirements"
-        )
-    )
-
-    fit_summary = anonymize_text(
-        candidate.get(
-            "fit_summary"
-        ),
-        candidate
-    )
+    fit_summary = anonymize_text(candidate.get("fit_summary"), candidate)
 
     evidence_items = [
-        anonymize_text(
-            item,
-            candidate
-        )
-        for item in normalize_items(
-            candidate.get(
-                "matching_evidence"
-            )
-        )
+        anonymize_text(i, candidate)
+        for i in normalize_items(candidate.get("matching_evidence"))
     ]
-
     gap_items = [
-        anonymize_text(
-            item,
-            candidate
-        )
-        for item in normalize_items(
-            candidate.get(
-                "gaps"
-            )
-        )
+        anonymize_text(i, candidate)
+        for i in normalize_items(candidate.get("gaps"))
     ]
+    bias_check = anonymize_text(candidate.get("bias_check"), candidate)
 
-    bias_check = anonymize_text(
-        candidate.get(
-            "bias_check"
-        ),
-        candidate
-    )
+    is_weak = candidate_is_weak(candidate)
+    weak_class = " weak" if is_weak else ""
+    badge = '<span class="badge-weak">Weak match</span>' if is_weak else ""
 
-    # ---------------------------------------------------------
-    # Weak-match detection
-    # ---------------------------------------------------------
+    meta = f"ID {candidate_id}"
+    if coverage is not None:
+        meta += f" · {coverage:.0%} of requirements covered"
 
-    is_weak = (
-        (
-            coverage_value is not None
-            and coverage_value < WEAK_COVERAGE_THRESHOLD
-        )
-        or (
-            coverage_value is None
-            and not matched
-        )
-    )
-
-    weak_class = (
-        " weak"
+    caption = (
+        "similarity only · limited requirement fit"
         if is_weak
-        else ""
+        else "relevance + requirement fit"
     )
 
-    if is_weak:
-        score_caption = (
-            "semantic similarity only · "
-            "limited requirement fit"
-        )
-
-        weak_badge = (
-            '<div class="badge-weak">'
-            'Weak match'
-            '</div>'
-        )
-
-    else:
-        score_caption = (
-            "semantic relevance + "
-            "requirement fit"
-        )
-
-        weak_badge = ""
-
-    # ---------------------------------------------------------
-    # Requirement fit preview
-    # ---------------------------------------------------------
-
-    if matched:
-        requirement_html = render_tags(
-            matched[:6],
-            "tag-match"
-        )
-    else:
-        requirement_html = (
-            '<div class="no-match-box">'
-            'No explicit matches identified.'
-            '</div>'
-        )
-
-    # ---------------------------------------------------------
-    # Candidate header card
-    # (render_html strips blank/indented lines so an empty
-    #  {weak_badge} can't turn the rest into a code block)
-    # ---------------------------------------------------------
-
-    render_html(
-        f"""
-        <div class="candidate-card">
-            <div class="candidate-top">
-                <div class="candidate-identity">
-                    <div class="candidate-rank">
-                        {rank:02d}
-                    </div>
+    with st.container(key=f"cand_{position}"):
+        render_html(
+            f"""
+            <div class="cand-head">
+                <div class="cand-id">
+                    <div class="rank">{rank:02d}</div>
                     <div>
-                        <div class="candidate-label">
-                            Ranked candidate
-                        </div>
-                        <div class="candidate-name">
-                            Candidate {candidate_id}
-                        </div>
-                        <div class="candidate-id">
-                            Candidate ID · {candidate_id}
-                        </div>
+                        <div class="cand-name">Candidate {candidate_id}{badge}</div>
+                        <div class="cand-meta">{safe_text(meta)}</div>
                     </div>
                 </div>
-                <div class="score-center">
-                    <div class="score-label">
-                        Hybrid match
+                <div class="score">
+                    <div class="score-num{weak_class}">{score_percent:.0f}%</div>
+                    <div class="score-bar">
+                        <div class="score-fill{weak_class}" style="width:{score_percent:.1f}%"></div>
                     </div>
-                    <div class="score-value{weak_class}">
-                        {score_percent:.1f}%
-                    </div>
-                    <div class="score-progress">
-                        <div
-                            class="score-progress-fill{weak_class}"
-                            style="width:{score_percent:.1f}%"
-                        ></div>
-                    </div>
-                    <div class="score-percent">
-                        {score_caption}
-                    </div>
-                    {weak_badge}
-                </div>
-                <div>
-                    <div class="mini-heading">
-                        Requirement fit
-                    </div>
-                    {requirement_html}
+                    <div class="score-cap">{caption}</div>
                 </div>
             </div>
-        </div>
-        """
-    )
-
-    # ---------------------------------------------------------
-    # Matching requirements + gaps
-    # ---------------------------------------------------------
-
-    left, right = st.columns(
-        2,
-        gap="large"
-    )
-
-    with left:
-
-        render_html(
-            '<div class="mini-heading">'
-            'Matching requirements'
-            '</div>'
+            """
         )
+
+        if fit_summary:
+            render_html(f'<div class="summary">{safe_text(fit_summary)}</div>')
 
         if matched:
             render_html(
-                render_tags(
-                    matched,
-                    "tag-match"
-                )
+                f"""
+                <div class="tag-group">
+                    <div class="tag-label">Matches</div>
+                    {render_tags(matched, "tag-match")}
+                </div>
+                """
             )
-        else:
-            st.caption(
-                "No specific matching requirements identified."
-            )
-
-    with right:
-
-        render_html(
-            '<div class="mini-heading">'
-            'Potential gaps'
-            '</div>'
-        )
 
         if missing:
             render_html(
-                render_tags(
-                    missing,
-                    "tag-missing"
-                )
-            )
-        elif gap_items:
-            st.caption(
-                "See gap details below."
-            )
-        else:
-            st.caption(
-                "No explicit requirement gaps identified."
+                f"""
+                <div class="tag-group">
+                    <div class="tag-label">Not found</div>
+                    {render_tags(missing, "tag-missing")}
+                </div>
+                """
             )
 
-        if gap_items:
-            with st.expander(
-                "Gap details"
-            ):
-                for gap in gap_items:
-                    st.markdown(
-                        f"- {safe_text(gap)}",
-                        unsafe_allow_html=True
+        if evidence_items or gap_items or bias_check:
+            with st.expander("View evidence & notes"):
+                if evidence_items:
+                    items = "".join(f"<li>{safe_text(i)}</li>" for i in evidence_items)
+                    render_html(
+                        f'<div class="tag-label">Supporting evidence</div>'
+                        f'<ul class="detail-list">{items}</ul>'
                     )
-
-    # ---------------------------------------------------------
-    # Requirement coverage
-    # ---------------------------------------------------------
-
-    if coverage_value is not None:
-
-        render_html(
-            f"""
-            <div class="coverage-box">
-                <div class="coverage-row">
-                    <div class="coverage-label">
-                        Explicit requirement coverage
-                    </div>
-                    <div class="coverage-value">
-                        {coverage_value:.0%}
-                    </div>
-                </div>
-                <div class="coverage-track">
-                    <div
-                        class="coverage-fill"
-                        style="width:{coverage_value * 100:.1f}%"
-                    ></div>
-                </div>
-            </div>
-            """
-        )
-
-    # ---------------------------------------------------------
-    # AI evidence summary
-    # ---------------------------------------------------------
-
-    if fit_summary:
-
-        render_html(
-            f"""
-            <div class="fit-box">
-                <div class="fit-heading">
-                    AI evidence summary
-                </div>
-                <div class="fit-text">
-                    {safe_text(fit_summary)}
-                </div>
-            </div>
-            """
-        )
-
-    # ---------------------------------------------------------
-    # Supporting evidence
-    # ---------------------------------------------------------
-
-    if evidence_items:
-
-        with st.expander(
-            "Supporting evidence"
-        ):
-            for evidence in evidence_items:
-                st.markdown(
-                    f"- {safe_text(evidence)}",
-                    unsafe_allow_html=True
-                )
-
-    # ---------------------------------------------------------
-    # Evaluation notes
-    # ---------------------------------------------------------
-
-    if bias_check:
-
-        with st.expander(
-            "Evaluation notes"
-        ):
-            st.markdown(
-                safe_text(
-                    bias_check
-                )
-            )
+                if gap_items:
+                    items = "".join(f"<li>{safe_text(i)}</li>" for i in gap_items)
+                    render_html(
+                        f'<div class="tag-label" style="margin-top:14px">Gaps</div>'
+                        f'<ul class="detail-list">{items}</ul>'
+                    )
+                if bias_check:
+                    render_html(
+                        f'<div class="tag-label" style="margin-top:14px">Evaluation notes</div>'
+                        f'<div class="detail-list" style="padding-left:0">{safe_text(bias_check)}</div>'
+                    )
 
 
 # =========================================================
 # SESSION STATE
 # =========================================================
 
-if "selected_query" not in st.session_state:
-    st.session_state["selected_query"] = ""
-
-if "search_result" not in st.session_state:
-    st.session_state["search_result"] = None
-
-if "last_query" not in st.session_state:
-    st.session_state["last_query"] = None
-
-if "pending_search" not in st.session_state:
-    st.session_state["pending_search"] = False
+st.session_state.setdefault("query_input", "")
+st.session_state.setdefault("search_result", None)
+st.session_state.setdefault("last_query", None)
+st.session_state.setdefault("pending_search", False)
 
 
 # =========================================================
@@ -1696,118 +710,35 @@ if "pending_search" not in st.session_state:
 with st.sidebar:
     render_html(
         """
-        <div class="sidebar-brand">
-            <div class="sidebar-logo">◈</div>
-            <div class="sidebar-title">RAG Talent Search</div>
-            <div class="sidebar-subtitle">
-                AI-powered candidate discovery using semantic
-                retrieval, hybrid ranking, and evidence-grounded
-                evaluation.
-            </div>
+        <div class="sb-brand">
+            <div class="logo">◈</div>
+            <div class="sb-title">RAG Talent Search</div>
         </div>
+        <div class="sb-sub">
+            Find candidates by describing what you need in plain language.
+        </div>
+        <div class="sb-label">Try a search</div>
         """
     )
 
-    render_html(
-        '<div class="sidebar-section">Workspace</div>'
-    )
-
-    render_html(
-        '<div class="sidebar-nav active">⌂ &nbsp; Talent Search</div>'
-    )
-
-    render_html(
-        '<div class="sidebar-nav">⌕ &nbsp; Candidate Discovery</div>'
-    )
-
-    render_html(
-        '<div class="sidebar-section">Suggested searches</div>'
-    )
-
-    sidebar_examples = [
-        "Python developer with NLP and SQL",
-        "Machine learning engineer with deep learning",
-        "Computer vision and OpenCV experience",
-        "RAG, LLM, and vector database skills",
-    ]
-
-    for index, example in enumerate(sidebar_examples):
-        if st.button(
+    for index, example in enumerate(SUGGESTED_SEARCHES):
+        st.button(
             example,
             key=f"side_query_{index}",
             use_container_width=True,
-        ):
-            st.session_state["selected_query"] = example
-            st.session_state["pending_search"] = True
-            st.rerun()
-
-    render_html(
-        '<div class="sidebar-section">AI architecture</div>'
-    )
-
-    architecture_status = [
-        ("RAG Pipeline", "Ready"),
-        ("Hybrid Ranking", "Ready"),
-        ("Groq · Primary", "Ready"),
-        ("Gemini · Fallback", "Ready"),
-        ("Local Evaluation Cache", "Ready"),
-    ]
-
-    for label, status in architecture_status:
-        render_html(
-            f"""
-            <div class="sidebar-status">
-                <span></span>
-                {safe_text(label)}
-                <small style="margin-left:auto;color:#98A2B3!important;">
-                    {safe_text(status)}
-                </small>
-            </div>
-            """
+            on_click=use_suggestion,
+            args=(example,),
         )
 
     render_html(
         """
-        <div style="height:10px;"></div>
-        <div class="sidebar-note">
-            <b>Decision support only</b>
-            <br>
-            Results provide retrieval and evidence to support
-            human review. They are not an automated hiring
-            decision.
+        <div class="sb-note">
+            <b>Decision support only.</b><br>
+            Results are evidence to support human review, not an
+            automated hiring decision.
         </div>
         """
     )
-
-
-# =========================================================
-# TOPBAR
-# =========================================================
-
-render_html(
-    """
-    <div class="topbar">
-        <div class="brand-row">
-            <div class="topbar-mark">◈</div>
-            <div>
-                <div class="topbar-title">RAG Talent Search</div>
-                <div class="topbar-subtitle">
-                    Intelligent candidate discovery workspace
-                </div>
-            </div>
-        </div>
-        <div class="topbar-right">
-            <div class="tech-pill">
-                RAG + Hybrid Ranking + Groq / Gemini
-            </div>
-            <div class="status-pill">
-                <span class="status-dot"></span>
-                System ready
-            </div>
-        </div>
-    </div>
-    """
-)
 
 
 # =========================================================
@@ -1816,176 +747,83 @@ render_html(
 
 render_html(
     """
-    <div class="hero-shell">
-        <section class="hero">
-            <div class="eyebrow">AI-powered recruitment</div>
-            <div class="hero-title">
-                Find the right talent, <span>faster.</span>
-            </div>
-            <div class="hero-copy">
-                Describe the candidate you need in natural language.
-                The engine retrieves relevant profiles, ranks them
-                with a hybrid score, and evaluates the evidence using
-                Groq with Gemini as an automatic fallback.
-            </div>
-            <div class="hero-meta">
-                <span class="hero-chip">Semantic retrieval</span>
-                <span class="hero-chip">Hybrid ranking</span>
-                <span class="hero-chip">Groq primary</span>
-                <span class="hero-chip">Gemini fallback</span>
-                <span class="hero-chip">Local cache</span>
-            </div>
-        </section>
-        <aside class="hero-side">
-            <div class="hero-side-title">How the engine works</div>
-            <div class="hero-stat">
-                <span class="hero-stat-label">01 · Retrieve</span>
-                <span class="hero-stat-value">Semantic</span>
-            </div>
-            <div class="hero-stat">
-                <span class="hero-stat-label">02 · Aggregate</span>
-                <span class="hero-stat-value">Candidate-level</span>
-            </div>
-            <div class="hero-stat">
-                <span class="hero-stat-label">03 · Rank</span>
-                <span class="hero-stat-value">Hybrid</span>
-            </div>
-            <div class="hero-stat">
-                <span class="hero-stat-label">04 · Evaluate</span>
-                <span class="hero-stat-value">Groq → Gemini</span>
-            </div>
-            <div class="hero-stat">
-                <span class="hero-stat-label">05 · Review</span>
-                <span class="hero-stat-value">Human-led</span>
-            </div>
-        </aside>
+    <div class="hero">
+        <div class="hero-badge">AI-powered recruitment</div>
+        <div class="hero-title">Find the right talent, <span>faster.</span></div>
+        <div class="hero-copy">
+            Describe the person you need. We search the profiles,
+            rank the best matches, and show the evidence behind each one.
+        </div>
     </div>
     """
 )
 
 
 # =========================================================
-# SEARCH PANEL
+# SEARCH
 # =========================================================
 
-with st.container(key="search_panel"):
-    render_html(
-        """
-        <div class="panel-heading">Who are you looking for?</div>
-        <div class="panel-description">
-            Add skills, technologies, experience, or project
-            requirements in plain language.
-        </div>
-        """
+search_col, button_col, clear_col = st.columns([6, 1.3, 1], gap="small")
+
+with search_col:
+    st.text_input(
+        "Candidate search",
+        key="query_input",
+        placeholder="e.g. Python developer with NLP, SQL and deep learning",
+        label_visibility="collapsed",
+        on_change=request_search,
     )
 
-    search_col, button_col, clear_col = st.columns(
-        [6.4, 1.15, 0.9],
-        gap="small",
-    )
+with button_col:
+    search_clicked = st.button("Search", type="primary", use_container_width=True)
 
-    with search_col:
-        query = st.text_input(
-            "Candidate search",
-            value=st.session_state.get("selected_query", ""),
-            placeholder=(
-                "e.g. Python developer with NLP, RAG, "
-                "SQL, and deep learning experience"
-            ),
-            label_visibility="collapsed",
-        )
+with clear_col:
+    st.button("Clear", use_container_width=True, on_click=clear_all)
 
-    with button_col:
-        search_clicked = st.button(
-            "Search",
-            type="primary",
-            use_container_width=True,
-        )
-
-    with clear_col:
-        clear_clicked = st.button(
-            "Clear",
-            use_container_width=True,
-        )
-
-    render_html(
-        """
-        <div class="suggestion-row">
-            <span class="suggestion-chip">Python + ML</span>
-            <span class="suggestion-chip">NLP + SQL</span>
-            <span class="suggestion-chip">Computer Vision</span>
-            <span class="suggestion-chip">RAG + LLM</span>
-            <span class="suggestion-chip">Vector Search</span>
-            <span class="suggestion-chip">Natural Language</span>
-        </div>
-        """
-    )
-
-if clear_clicked:
-    clear_results()
-    st.session_state["selected_query"] = ""
-    st.session_state["pending_search"] = False
-    st.rerun()
-
-
-# =========================================================
-# PIPELINE LINE
-# =========================================================
-
-render_html(
-    """
-    <div class="pipeline-line">
-        <span class="on">01 Retrieve</span>
-        <span>→</span>
-        <span class="on">02 Aggregate</span>
-        <span>→</span>
-        <span class="on">03 Rank</span>
-        <span>→</span>
-        <span class="on">04 Evaluate</span>
-        <span>→</span>
-        <span class="done">05 Review</span>
-    </div>
-    """
-)
+with st.container(key="chips"):
+    chip_cols = st.columns([1, 1, 1, 1, 1.4], gap="small")
+    chips = ["Python + ML", "NLP + SQL", "Computer Vision", "RAG + LLM"]
+    chip_queries = [
+        "Python developer with machine learning",
+        "NLP engineer with SQL",
+        "Computer vision engineer",
+        "RAG and LLM engineer",
+    ]
+    for col, label, chip_query in zip(chip_cols, chips, chip_queries):
+        with col:
+            st.button(
+                label,
+                key=f"chip_{label}",
+                on_click=use_suggestion,
+                args=(chip_query,),
+            )
 
 
 # =========================================================
 # SEARCH EXECUTION
 # =========================================================
 
-run_search = (
-    search_clicked
-    or st.session_state.get("pending_search", False)
-)
-
+run_search = search_clicked or st.session_state.get("pending_search", False)
 st.session_state["pending_search"] = False
 
 if run_search:
-    if not query.strip():
+    query_text = (st.session_state.get("query_input") or "").strip()
+
+    if not query_text:
         st.warning(
-            "Enter a few skills, technologies, or requirements "
-            "to start searching."
+            "Type a few skills, technologies or requirements to start."
         )
     else:
-        clean_query = query.strip()
-        st.session_state["selected_query"] = clean_query
-
-        with st.spinner("Searching the talent knowledge base..."):
+        with st.spinner("Searching profiles…"):
             try:
-                result = execute_search(clean_query)
-
-                st.session_state["search_result"] = result
-                st.session_state["last_query"] = clean_query
+                st.session_state["search_result"] = execute_search(query_text)
+                st.session_state["last_query"] = query_text
                 st.session_state.pop("search_error", None)
-
             except Exception as exc:
-                error_message = str(exc)
-                st.session_state["search_error"] = error_message
-
+                st.session_state["search_error"] = str(exc)
                 st.error("The search could not be completed.")
-
                 with st.expander("Technical details"):
-                    st.write(error_message)
+                    st.write(str(exc))
 
 
 # =========================================================
@@ -1995,196 +833,94 @@ if run_search:
 result = st.session_state.get("search_result")
 
 if result:
-    last_query = st.session_state.get(
-        "last_query",
-        query,
-    )
+    last_query = st.session_state.get("last_query") or ""
+    candidates = result.get("candidates", []) or []
+
+    count = len(candidates)
+    noun = "candidate" if count == 1 else "candidates"
 
     render_html(
         f"""
         <div class="results-head">
-            <div>
-                <div class="section-kicker">Search results</div>
-                <div class="section-title">
-                    Best-matching candidate profiles
-                </div>
-                <div class="section-copy">
-                    Ranked for <b>{safe_text(last_query)}</b>
-                    using semantic relevance,
-                    requirement coverage, and
-                    evidence-grounded evaluation.
-                </div>
+            <div class="results-title">Top {count} {noun}</div>
+            <div class="results-sub">
+                For <b>{safe_text(last_query)}</b> ·
+                searched {safe_text(result.get("retrieved_count", 0))} passages
+                across {safe_text(result.get("unique_count", 0))} profiles
             </div>
         </div>
         """
     )
-
-    # =====================================================
-    # METRICS
-    # =====================================================
-
-    c1, c2, c3, c4 = st.columns(
-        4,
-        gap="small",
-    )
-
-    metrics = [
-        (
-            "Displayed candidates",
-            result.get("final_count", 0),
-            "Profiles shown to the recruiter",
-        ),
-        (
-            "Retrieved chunks",
-            result.get("retrieved_count", 0),
-            "Relevant knowledge chunks",
-        ),
-        (
-            "Ranked candidates",
-            result.get("ranked_count", 0),
-            "Profiles considered for ranking",
-        ),
-        (
-            "Unique profiles",
-            result.get("unique_count", 0),
-            "Distinct candidate IDs",
-        ),
-    ]
-
-    for col, (label, value, caption) in zip(
-        [c1, c2, c3, c4],
-        metrics,
-    ):
-        with col:
-            render_html(
-                f"""
-                <div class="metric-card">
-                    <div class="metric-label">
-                        {safe_text(label)}
-                    </div>
-                    <div class="metric-value">
-                        {safe_text(value)}
-                    </div>
-                    <div class="metric-caption">
-                        {safe_text(caption)}
-                    </div>
-                </div>
-                """
-            )
-
-    # =====================================================
-    # CANDIDATES
-    # =====================================================
-
-    candidates = result.get("candidates", []) or []
 
     if not candidates:
         render_html(
             """
             <div class="empty-state">
-                <b>No matching candidates found.</b>
-                <br>
+                <b>No matching candidates found.</b><br>
                 Try a broader description or fewer constraints.
             </div>
             """
         )
     else:
-        for candidate in candidates:
-            render_candidate(candidate)
+        if all(candidate_is_weak(c) for c in candidates):
+            render_html(
+                """
+                <div class="notice">
+                    No strong matches for this search. These are the closest
+                    profiles by similarity — try rephrasing or using
+                    different skills.
+                </div>
+                """
+            )
 
-    # =====================================================
-    # TECHNICAL DETAILS
-    # =====================================================
+        for position, candidate in enumerate(candidates, start=1):
+            render_candidate(candidate, position)
+
+    # ----- Provider status + technical details -----
 
     llm_source = get_llm_source(result)
     cached_provider = get_cached_provider(result)
-
-    provider_name = provider_display_name(
-        llm_source,
-        cached_provider,
+    status_class = (
+        " warn" if llm_source in {"unavailable", "", "unknown"} else ""
     )
-
-    with st.expander("Technical details"):
-        technical_rows = {
-            "Retrieved chunks": result.get(
-                "retrieved_count",
-                0,
-            ),
-            "Ranked candidates": result.get(
-                "ranked_count",
-                0,
-            ),
-            "Unique profiles": result.get(
-                "unique_count",
-                0,
-            ),
-            "Final candidates": result.get(
-                "final_count",
-                0,
-            ),
-            "LLM evaluation source": provider_name,
-        }
-
-        if llm_source == "cache" and cached_provider:
-            technical_rows["Original LLM provider"] = (
-                provider_display_name(cached_provider)
-            )
-
-        for key, value in technical_rows.items():
-            st.write(f"**{key}:** {value}")
-
-        groq_error = result.get("groq_error")
-
-        if groq_error:
-            st.write("**Groq fallback reason:**")
-            st.code(
-                str(groq_error),
-                language="text",
-            )
-
-        evaluation_error = result.get("llm_error")
-
-        if evaluation_error:
-            st.write("**Evaluation error:**")
-            st.code(
-                str(evaluation_error),
-                language="text",
-            )
-
-        cache_key = result.get("cache_key")
-
-        if cache_key:
-            st.write("**Evaluation cache:** Enabled")
-            st.caption(f"Cache key: {cache_key}")
-
-    # =====================================================
-    # PROVIDER STATUS
-    # =====================================================
-
-    evaluation_status = provider_status_text(
-        llm_source,
-        cached_provider,
-    )
-
-    status_class = ""
-
-    if llm_source in {
-        "unavailable",
-        "",
-        "unknown",
-    }:
-        status_class = "warning"
 
     render_html(
         f"""
-        <div class="evaluation-banner">
-            <span class="evaluation-dot {status_class}"></span>
-            <span>
-                {safe_text(evaluation_status)}
-            </span>
+        <div class="status-line">
+            <span class="dot{status_class}"></span>
+            <span>{safe_text(provider_status_text(llm_source, cached_provider))}</span>
         </div>
         """
     )
+
+    with st.expander("Technical details"):
+        rows = {
+            "Retrieved chunks": result.get("retrieved_count", 0),
+            "Ranked candidates": result.get("ranked_count", 0),
+            "Unique profiles": result.get("unique_count", 0),
+            "Final candidates": result.get("final_count", 0),
+            "LLM evaluation source": provider_display_name(
+                llm_source, cached_provider
+            ),
+        }
+
+        if llm_source == "cache" and cached_provider:
+            rows["Original LLM provider"] = provider_display_name(cached_provider)
+
+        for key, value in rows.items():
+            st.write(f"**{key}:** {value}")
+
+        if result.get("groq_error"):
+            st.write("**Groq fallback reason:**")
+            st.code(str(result["groq_error"]), language="text")
+
+        if result.get("llm_error"):
+            st.write("**Evaluation error:**")
+            st.code(str(result["llm_error"]), language="text")
+
+        if result.get("cache_key"):
+            st.write("**Evaluation cache:** Enabled")
+            st.caption(f"Cache key: {result['cache_key']}")
 
 
 # =========================================================
@@ -2194,14 +930,8 @@ if result:
 render_html(
     """
     <div class="footer">
-        <strong>RAG Talent Search</strong>
-        <br>
-        Semantic Retrieval · Hybrid Ranking · Evidence-Grounded AI
-        <br>
-        Groq Primary · Gemini Automatic Fallback · Local Evaluation Cache
-        <br>
-        AI talent discovery with semantic retrieval,
-        hybrid ranking, and evidence-grounded evaluation.
+        <strong>RAG Talent Search</strong><br>
+        Semantic retrieval · Hybrid ranking · Evidence-grounded AI
     </div>
     """
 )
