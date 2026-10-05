@@ -1,14 +1,17 @@
 class SearchResultFormatter:
-
     """
     Formats raw SearchPipeline results into
     clean presentation-ready structures.
+
+    Supports the provider-neutral LLM fields while
+    maintaining backward compatibility with previous
+    Gemini-specific field names.
     """
 
     @staticmethod
     def format_candidate(
         candidate,
-        gemini_evaluation=None
+        llm_evaluation=None
     ):
         """
         Format a single candidate result.
@@ -17,52 +20,69 @@ class SearchResultFormatter:
         result = {
             "rank": candidate["final_rank"],
             "candidate_id": candidate["candidate_id"],
+
             "semantic_score": round(
                 candidate["similarity_score"],
                 4
             ),
+
             "requirement_coverage": round(
                 candidate["requirement_coverage"],
                 4
             ),
+
             "hybrid_score": round(
                 candidate["hybrid_score"],
                 4
             ),
+
             "matched_requirements": (
-                candidate["matched_requirements"]
+                candidate.get(
+                    "matched_requirements",
+                    []
+                )
             ),
+
             "missing_requirements": (
-                candidate["missing_requirements"]
+                candidate.get(
+                    "missing_requirements",
+                    []
+                )
             ),
         }
 
-        # Gemini evaluation is optional.
-        # Retrieval and ranking results remain valid
-        # when Gemini is unavailable.
-        if gemini_evaluation:
+        # ---------------------------------------------------------
+        # LLM evaluation is optional.
+        # Retrieval and ranking remain valid even when
+        # LLM evaluation is unavailable.
+        # ---------------------------------------------------------
+
+        if llm_evaluation:
 
             result.update({
                 "fit_summary": (
-                    gemini_evaluation.get(
+                    llm_evaluation.get(
                         "fit_summary",
                         ""
                     )
                 ),
+
                 "matching_evidence": (
-                    gemini_evaluation.get(
+                    llm_evaluation.get(
                         "matching_evidence",
                         []
                     )
                 ),
+
                 "gaps": (
-                    gemini_evaluation.get(
+                    llm_evaluation.get(
                         "gaps",
                         []
                     )
                 ),
+
                 "bias_check": (
-                    gemini_evaluation.get(
+                    llm_evaluation.get(
                         "bias_check",
                         ""
                     )
@@ -86,47 +106,78 @@ class SearchResultFormatter:
     ):
         """
         Format the complete pipeline result.
+
+        New fields:
+            llm_evaluation
+            llm_source
+            llm_error
+            cached_source
+
+        Backward-compatible fields:
+            gemini_evaluation
+            gemini_source
+            gemini_error
         """
 
-        # ---------------------------------------------------------
-        # Gemini evaluation is optional.
-        # ---------------------------------------------------------
+        # =========================================================
+        # Resolve LLM evaluation
+        # =========================================================
 
-        gemini_evaluation = (
-            pipeline_result.get(
-                "gemini_evaluation"
-            )
+        llm_evaluation = pipeline_result.get(
+            "llm_evaluation"
         )
 
-        gemini_candidates = {}
+        # ---------------------------------------------------------
+        # Backward compatibility with the old Gemini field.
+        # ---------------------------------------------------------
+
+        if llm_evaluation is None:
+
+            llm_evaluation = (
+                pipeline_result.get(
+                    "gemini_evaluation"
+                )
+            )
+
+        # =========================================================
+        # Build candidate evaluation lookup
+        # =========================================================
+
+        llm_candidates = {}
 
         if (
-            gemini_evaluation
-            and isinstance(
-                gemini_evaluation,
+            isinstance(
+                llm_evaluation,
                 dict
             )
         ):
 
             for candidate in (
-                gemini_evaluation.get(
+                llm_evaluation.get(
                     "candidates",
                     []
                 )
             ):
+
+                if not isinstance(
+                    candidate,
+                    dict
+                ):
+                    continue
 
                 candidate_id = candidate.get(
                     "candidate_id"
                 )
 
                 if candidate_id is not None:
-                    gemini_candidates[
+
+                    llm_candidates[
                         candidate_id
                     ] = candidate
 
-        # ---------------------------------------------------------
-        # Format final candidates.
-        # ---------------------------------------------------------
+        # =========================================================
+        # Format final candidates
+        # =========================================================
 
         formatted_candidates = []
 
@@ -135,12 +186,12 @@ class SearchResultFormatter:
             []
         ):
 
-            candidate_id = candidate[
+            candidate_id = candidate.get(
                 "candidate_id"
-            ]
+            )
 
-            candidate_gemini_evaluation = (
-                gemini_candidates.get(
+            candidate_llm_evaluation = (
+                llm_candidates.get(
                     candidate_id
                 )
             )
@@ -148,43 +199,94 @@ class SearchResultFormatter:
             formatted_candidates.append(
                 SearchResultFormatter.format_candidate(
                     candidate,
-                    candidate_gemini_evaluation
+                    candidate_llm_evaluation
                 )
             )
 
-        # ---------------------------------------------------------
-        # Return presentation-ready result.
-        # ---------------------------------------------------------
+        # =========================================================
+        # Resolve provider metadata
+        # =========================================================
 
-        return {
-            "query": pipeline_result[
-                "query"
-            ],
+        llm_source = pipeline_result.get(
+            "llm_source"
+        )
 
-            "retrieved_count": pipeline_result[
-                "retrieved_count"
-            ],
+        if llm_source is None:
 
-            "ranked_count": pipeline_result[
-                "ranked_count"
-            ],
-
-            "unique_count": pipeline_result[
-                "unique_count"
-            ],
-
-            "final_count": pipeline_result[
-                "final_count"
-            ],
-
-            "gemini_source": pipeline_result.get(
+            llm_source = pipeline_result.get(
                 "gemini_source",
                 "unavailable"
+            )
+
+        llm_error = pipeline_result.get(
+            "llm_error"
+        )
+
+        if llm_error is None:
+
+            llm_error = pipeline_result.get(
+                "gemini_error"
+            )
+
+        cached_source = pipeline_result.get(
+            "cached_source"
+        )
+
+        # =========================================================
+        # Return presentation-ready result
+        # =========================================================
+
+        return {
+            "query": pipeline_result.get(
+                "query",
+                ""
             ),
 
-            "gemini_error": pipeline_result.get(
-                "gemini_error"
+            "retrieved_count": pipeline_result.get(
+                "retrieved_count",
+                0
             ),
+
+            "ranked_count": pipeline_result.get(
+                "ranked_count",
+                0
+            ),
+
+            "unique_count": pipeline_result.get(
+                "unique_count",
+                0
+            ),
+
+            "final_count": pipeline_result.get(
+                "final_count",
+                0
+            ),
+
+            # -----------------------------------------------------
+            # New provider-neutral fields
+            # -----------------------------------------------------
+
+            "llm_source": llm_source,
+
+            "llm_error": llm_error,
+
+            "cached_source": cached_source,
+
+            "cache_key": pipeline_result.get(
+                "cache_key"
+            ),
+
+            # -----------------------------------------------------
+            # Backward-compatible Gemini fields
+            # -----------------------------------------------------
+
+            "gemini_source": llm_source,
+
+            "gemini_error": llm_error,
+
+            # -----------------------------------------------------
+            # Final candidates
+            # -----------------------------------------------------
 
             "candidates": formatted_candidates,
         }

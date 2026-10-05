@@ -3,14 +3,12 @@
 > **Evidence-grounded talent discovery system for semantic candidate retrieval, hybrid ranking, and AI-assisted candidate evaluation.**
 
 [![Live Demo](https://img.shields.io/badge/Live-Demo-FF4B4B?logo=streamlit\&logoColor=white)](https://rag-talent-search-engine.streamlit.app/)
-
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?logo=github\&logoColor=white)](https://github.com/AbdelrhmanAkl/rag-talent-search-engine)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python\&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?logo=streamlit\&logoColor=white)](https://streamlit.io/)
 [![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-0467DF)](https://github.com/facebookresearch/faiss)
 
 **Live Demo:** https://rag-talent-search-engine.streamlit.app/
-
 
 **Repository:** https://github.com/AbdelrhmanAkl/rag-talent-search-engine
 
@@ -20,17 +18,20 @@
 
 **RAG Talent Search Engine** is an end-to-end **Retrieval-Augmented Generation (RAG)** application for natural-language candidate discovery from resume data.
 
-Instead of depending only on keyword matching, the system combines:
+Instead of relying only on keyword matching, the system combines:
 
 * Semantic resume retrieval
 * BGE embeddings
 * FAISS vector search
+* Candidate-level evidence aggregation
 * Explicit technical requirement matching
 * Hybrid candidate re-ranking
 * Near-duplicate profile detection
-* Evidence-grounded Gemini evaluation
+* Evidence-grounded LLM evaluation
+* Groq-powered evaluation with Gemini fallback
+* Deterministic local evaluation caching
 * Structured JSON-based evaluation
-* Streamlit-based candidate discovery interface
+* Streamlit-based recruiter interface
 
 The system is designed as a **human-in-the-loop decision-support tool**. It surfaces relevant candidate evidence, matching requirements, and potential gaps for human review rather than making autonomous hiring decisions.
 
@@ -66,7 +67,7 @@ Hybrid Re-ranking
         ↓
 Duplicate Detection
         ↓
-Gemini Evaluation
+LLM Evidence Evaluation
         ↓
 Structured Candidate Results
 ```
@@ -89,9 +90,9 @@ may miss a candidate whose resume describes:
 Built text classification systems using BERT-based architectures.
 ```
 
-A semantic retrieval system can identify the conceptual relationship between these descriptions even when the wording is different.
+Semantic retrieval can identify the conceptual relationship between these descriptions even when the wording is different.
 
-This project therefore separates the problem into two major stages:
+This project therefore separates candidate discovery into two major stages:
 
 ### Retrieval
 
@@ -99,7 +100,7 @@ Find potentially relevant evidence from the resume corpus.
 
 ### Evaluation
 
-Use retrieved evidence to generate a structured, evidence-grounded assessment.
+Use the retrieved evidence to generate a structured, evidence-grounded assessment.
 
 This **retrieval-before-generation** architecture reduces the dependency on the LLM as a search engine and keeps candidate evaluation tied to retrieved resume information.
 
@@ -124,7 +125,7 @@ This **retrieval-before-generation** architecture reduces the dependency on the 
                              ▼
                   ┌──────────────────────┐
                   │ Candidate Evidence   │
-                  │ Aggregation           │
+                  │ Aggregation          │
                   └──────────┬───────────┘
                              │
                              ▼
@@ -148,14 +149,21 @@ This **retrieval-before-generation** architecture reduces the dependency on the 
                              │
                              ▼
                   ┌──────────────────────┐
-                  │ Gemini Evaluation    │
-                  │ Evidence-Grounded    │
+                  │ LLM Evaluation       │
+                  │ Groq → Gemini         │
+                  │ Fallback              │
                   └──────────┬───────────┘
                              │
                              ▼
                   ┌──────────────────────┐
-                  │ Structured Results   │
-                  │ Streamlit Interface  │
+                  │ Local Evaluation      │
+                  │ Cache                 │
+                  └──────────┬───────────┘
+                             │
+                             ▼
+                  ┌──────────────────────┐
+                  │ Structured Results    │
+                  │ Streamlit Interface   │
                   └──────────────────────┘
 ```
 
@@ -171,7 +179,7 @@ Resume chunks are embedded using:
 BAAI/bge-small-en-v1.5
 ```
 
-The embeddings have a dimension of:
+The embedding dimension is:
 
 ```text
 384
@@ -191,9 +199,9 @@ This enables similarity-based retrieval using natural-language queries rather th
 
 Retrieved resume chunks are grouped by candidate.
 
-Instead of treating every retrieved chunk as an independent result, the pipeline reconstructs candidate-level evidence so that multiple pieces of information from the same resume can contribute to the candidate's relevance.
+Instead of treating every retrieved chunk as an independent result, the pipeline reconstructs candidate-level evidence so that multiple pieces of information from the same resume can contribute to candidate relevance.
 
-This creates a transition from:
+The pipeline therefore moves from:
 
 ```text
 Retrieved Chunks
@@ -201,7 +209,7 @@ Retrieved Chunks
 Candidate-Level Evidence
 ```
 
-which is important for downstream ranking and LLM evaluation.
+This candidate-level representation is then passed to the ranking and evaluation stages.
 
 ---
 
@@ -215,19 +223,20 @@ The system therefore combines two signals:
 
 ```text
 Hybrid Score =
+
     0.70 × Semantic Score
   + 0.30 × Requirement Coverage
 ```
 
 ### Semantic Score
 
-Measures semantic relevance between the query and candidate evidence.
+Measures semantic relevance between the recruiter query and candidate evidence.
 
 ### Requirement Coverage
 
-Checks whether explicitly extracted technical requirements appear within the candidate's available evidence.
+Measures whether explicitly extracted technical requirements appear within the candidate's available evidence.
 
-This provides a more controlled ranking layer before candidates reach the generative evaluation stage.
+This creates a more controlled ranking layer before candidates reach the generative evaluation stage.
 
 ---
 
@@ -247,20 +256,30 @@ This helps prevent redundant candidate profiles from occupying multiple position
 
 ---
 
-# Evidence-Grounded Gemini Evaluation
+# LLM Evidence Evaluation
 
-After retrieval and ranking, the highest-ranked candidates can be evaluated using **Google Gemini**.
+After retrieval and ranking, the highest-ranked candidates can be evaluated using an LLM.
 
-The evaluator receives candidate information retrieved from the resume corpus and produces structured output rather than an unrestricted natural-language judgment.
+The current architecture uses:
+
+```text
+Primary Provider:
+Groq
+
+Fallback Provider:
+Google Gemini
+```
+
+The evaluator is designed around an **evidence-constrained evaluation process**.
+
+The LLM receives candidate information retrieved from the resume corpus and produces structured output rather than an unrestricted natural-language judgment.
 
 Typical evaluation fields include:
 
 * Fit summary
 * Supporting evidence
-* Matching requirements
 * Potential gaps
-* Evaluation notes
-* Bias-awareness checks
+* Bias-awareness notes
 
 The intended flow is:
 
@@ -269,46 +288,108 @@ Resume Evidence
       ↓
 Retrieved Candidate Context
       ↓
-Gemini
+Groq
       ↓
-Structured Evaluation
+If Groq fails
+      ↓
+Google Gemini
+      ↓
+Structured JSON Evaluation
 ```
 
 The LLM is therefore used as an **evaluation layer after retrieval**, not as the primary candidate search mechanism.
 
 ---
 
+# Provider Fallback Architecture
+
+The evaluation layer is intentionally provider-aware:
+
+```text
+                 ┌───────────────┐
+                 │ Candidate     │
+                 │ Search Result │
+                 └───────┬───────┘
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │ Groq          │
+                 │ Primary LLM   │
+                 └───────┬───────┘
+                         │
+                  Success│Failure
+                         │
+              ┌──────────┘
+              │
+              ▼
+      ┌───────────────────┐
+      │ Gemini Fallback   │
+      └─────────┬─────────┘
+                │
+                ▼
+      ┌───────────────────┐
+      │ Structured JSON   │
+      │ Evaluation        │
+      └───────────────────┘
+```
+
+This architecture improves application resilience by preventing a temporary failure or availability issue with the primary provider from completely disabling LLM-assisted evaluation.
+
+---
+
 # Deterministic Evaluation Cache
 
-Gemini evaluations can be cached using deterministic request keys.
+LLM evaluations can be cached using deterministic request keys.
 
-This provides two practical benefits:
+The local cache provides two practical benefits:
 
 * Reduces repeated API calls during development and demonstrations
-* Avoids regenerating identical evaluations for identical requests
+* Avoids regenerating identical evaluations for identical search contexts
 
-The cache is separated from the public application artifacts.
+The cache also stores the original provider used to generate the evaluation.
+
+For example:
+
+```text
+Local cache · originally Groq
+```
+
+or:
+
+```text
+Local cache · originally Gemini
+```
+
+This makes cached evaluations transparent within the application interface.
+
+The cache is stored locally under:
+
+```text
+artifacts/llm_cache/
+```
 
 ---
 
 # Technical Configuration
 
-| Component                  | Configuration            |
-| -------------------------- | ------------------------ |
-| Candidate profiles         | 220                      |
-| Resume chunks              | 1,034                    |
-| Embedding model            | `BAAI/bge-small-en-v1.5` |
-| Embedding dimension        | 384                      |
-| Vector index               | FAISS `IndexFlatIP`      |
-| Chunk size                 | 1,000                    |
-| Chunk overlap              | 150                      |
-| Retrieval candidates       | Configurable             |
-| Semantic ranking weight    | 70%                      |
-| Requirement ranking weight | 30%                      |
-| Deduplication threshold    | 0.95                     |
-| LLM                        | Google Gemini            |
-| Evaluation format          | Structured JSON          |
-| Web interface              | Streamlit                |
+| Component                  | Configuration             |
+| -------------------------- | ------------------------- |
+| Candidate profiles         | 220                       |
+| Resume chunks              | 1,034                     |
+| Embedding model            | `BAAI/bge-small-en-v1.5`  |
+| Embedding dimension        | 384                       |
+| Vector index               | FAISS `IndexFlatIP`       |
+| Chunk size                 | 1,000                     |
+| Chunk overlap              | 150                       |
+| Retrieval candidates       | Configurable              |
+| Semantic ranking weight    | 70%                       |
+| Requirement ranking weight | 30%                       |
+| Deduplication threshold    | 0.95                      |
+| Primary LLM                | Groq                      |
+| Fallback LLM               | Google Gemini             |
+| Evaluation format          | Structured JSON           |
+| Evaluation cache           | Local deterministic cache |
+| Web interface              | Streamlit                 |
 
 ---
 
@@ -337,7 +418,11 @@ Hybrid Re-ranking
   ↓
 Deduplication
   ↓
-Gemini Evaluation
+Groq Evaluation
+  ↓
+Gemini Fallback if Required
+  ↓
+Structured Candidate Results
 ```
 
 ### Output
@@ -346,11 +431,14 @@ The interface presents candidate-level information including:
 
 ```text
 Candidate
-├── Relevance information
-├── Supporting resume evidence
+├── Hybrid match score
+├── Requirement coverage
 ├── Matching requirements
+├── Missing requirements
+├── Supporting resume evidence
+├── AI fit summary
 ├── Potential gaps
-└── Gemini evaluation notes
+└── Evaluation notes
 ```
 
 The goal is to make the evidence behind each retrieved candidate visible rather than returning an opaque LLM-generated recommendation.
@@ -370,7 +458,8 @@ rag-talent-search-engine/
 │   ├── candidate_profiles.json
 │   ├── chunks.json
 │   ├── resume_faiss.index
-│   └── config.json
+│   ├── config.json
+│   └── llm_cache/
 │
 ├── notebooks/
 │   └── RAG_Talent_Search_Engine_Development.ipynb
@@ -378,7 +467,7 @@ rag-talent-search-engine/
 ├── src/
 │   │
 │   ├── evaluation/
-│   │   └── gemini_evaluator.py
+│   │   └── llm_evaluator.py
 │   │
 │   ├── pipeline/
 │   │   └── search_pipeline.py
@@ -395,7 +484,6 @@ rag-talent-search-engine/
 │
 ├── test_evaluator_context.py
 ├── test_formatter.py
-├── test_gemini_e2e.py
 ├── test_pipeline.py
 ├── test_ranking.py
 └── test_retrieval.py
@@ -439,22 +527,30 @@ pip install -r requirements.txt
 
 ---
 
-# Gemini API Configuration
+# API Configuration
 
-The Gemini evaluation layer requires a valid Google Gemini API key.
+The LLM evaluation layer uses:
+
+```text
+Groq → Gemini fallback
+```
+
+Both providers can be configured through environment variables.
 
 ## Local Development
 
 ### Windows PowerShell
 
 ```powershell
-$env:GEMINI_API_KEY="YOUR_API_KEY"
+$env:GROQ_API_KEY="YOUR_GROQ_API_KEY"
+$env:GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 ```
 
 ### Linux / macOS
 
 ```bash
-export GEMINI_API_KEY="YOUR_API_KEY"
+export GROQ_API_KEY="YOUR_GROQ_API_KEY"
+export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 ```
 
 **Never commit API keys or secrets to GitHub.**
@@ -465,27 +561,31 @@ export GEMINI_API_KEY="YOUR_API_KEY"
 
 The application is deployed using **Streamlit Community Cloud**.
 
-For deployment:
-
-1. Connect the GitHub repository to Streamlit Community Cloud.
-2. Select the `main` branch.
-3. Set the application entry point to:
+Deployment configuration:
 
 ```text
+Repository:
+AbdelrhmanAkl/rag-talent-search-engine
+
+Branch:
+main
+
+Entry point:
 app.py
 ```
 
-4. Add the Gemini API key through Streamlit Secrets.
+The required API keys should be configured through Streamlit Secrets.
 
 Example:
 
 ```toml
-GEMINI_API_KEY = "YOUR_API_KEY"
+GROQ_API_KEY = "YOUR_GROQ_API_KEY"
+GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
 ```
 
-The API key should be stored in the Streamlit application's secret configuration and **must not be committed to the repository**.
+The API keys must remain inside the application's secret configuration and **must not be committed to the repository**.
 
-The RAG retrieval artifacts required by the application are included in the repository so that the deployed application can initialize the retrieval pipeline without rebuilding the index at startup.
+The retrieval artifacts required by the application are included in the repository so that the deployed application can initialize the retrieval pipeline without rebuilding the vector index at startup.
 
 ---
 
@@ -535,21 +635,16 @@ python test_pipeline.py
 python test_formatter.py
 ```
 
-Additional tests cover:
+Additional evaluation and integration testing covers:
 
-* Gemini evaluation context
-* Gemini end-to-end integration
+* LLM evaluation context
 * Candidate ranking
 * Deduplication
 * Retrieval behavior
 * Pipeline integration
 * Result formatting
 
-The Gemini end-to-end test requires a valid:
-
-```text
-GEMINI_API_KEY
-```
+LLM integration tests require valid API credentials.
 
 ---
 
@@ -573,9 +668,21 @@ The ranking layer therefore combines:
 
 ```text
 Semantic Relevance
-+
+        +
 Requirement Coverage
 ```
+
+## Provider Resilience
+
+The application uses a primary/fallback provider architecture:
+
+```text
+Groq
+  ↓
+Gemini fallback
+```
+
+This reduces dependency on a single external LLM provider.
 
 ## Human-in-the-Loop
 
@@ -599,11 +706,12 @@ The repository contains the precomputed artifacts required for the deployed demo
 candidate_profiles.json
 chunks.json
 resume_faiss.index
+config.json
 ```
 
 These artifacts allow the Streamlit application to load the candidate corpus and FAISS index directly during deployment.
 
-Dataset usage and redistribution should remain subject to the original dataset's Kaggle license and terms.
+Dataset usage and redistribution remain subject to the original dataset's license and terms.
 
 ---
 
@@ -633,7 +741,7 @@ Semantic retrieval does not guarantee that every relevant candidate will be retr
 
 ### LLM Dependency
 
-Gemini evaluation depends on:
+LLM evaluation depends on:
 
 * API availability
 * API configuration
@@ -696,9 +804,11 @@ Potential extensions include:
 
 ### Generative AI
 
+* Groq
 * Google Gemini
 * Evidence-grounded evaluation
 * Structured JSON generation
+* Provider fallback architecture
 * Deterministic evaluation caching
 
 ### Engineering
@@ -707,7 +817,7 @@ Potential extensions include:
 * GitHub
 * Virtual Environments
 * Modular Python Architecture
-* Automated Caching
+* Local Caching
 * Streamlit Community Cloud
 
 ---
@@ -737,20 +847,36 @@ Deduplication
  ↓
 LLM Evaluation
  ↓
+Provider Fallback
+ ↓
 Structured Output
+ ↓
+Caching
  ↓
 Web Deployment
 ```
 
 Key areas demonstrated:
 
-**RAG · Semantic Search · Vector Databases · NLP · Information Retrieval · Hybrid Ranking · LLM Evaluation · Prompt Engineering · AI Engineering · Streamlit · Deployment**
+**RAG · Semantic Search · Vector Search · NLP · Information Retrieval · Hybrid Ranking · LLM Evaluation · Prompt Engineering · Evidence Grounding · Structured Generation · AI Engineering · Streamlit · Deployment**
 
 ---
 
-# Portfolio
+# Portfolio Value
 
 **RAG Talent Search Engine** was built as a portfolio-grade AI system demonstrating how retrieval, ranking, and generative AI can be combined into a practical end-to-end application.
+
+The project focuses on engineering decisions that are relevant to real-world AI systems:
+
+* Retrieval before generation
+* Candidate-level ranking
+* Evidence-grounded LLM evaluation
+* Explicit requirement matching
+* Provider fallback
+* Deterministic caching
+* Modular architecture
+* Reproducible retrieval artifacts
+* Production-style Streamlit deployment
 
 ### Core Engineering Concepts
 
@@ -765,6 +891,7 @@ Key areas demonstrated:
 * LLM Evaluation
 * Evidence Grounding
 * Structured Generation
+* Provider Fallback
 * Caching
 * Streamlit Deployment
 
@@ -790,7 +917,6 @@ The project is published primarily as a portfolio demonstration.
 
 Dataset usage remains subject to the original dataset's license and terms.
 
-
 ---
 
 # Author
@@ -803,5 +929,4 @@ GitHub: https://github.com/AbdelrhmanAkl
 
 ---
 
-**Built with Python, FAISS, Sentence Transformers, Google Gemini, and Streamlit.**
-
+**Built with Python, FAISS, Sentence Transformers, Groq, Google Gemini, and Streamlit.**

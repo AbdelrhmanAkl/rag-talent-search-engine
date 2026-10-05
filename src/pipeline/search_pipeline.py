@@ -1,7 +1,7 @@
 from src.retrieval.engine import RetrievalEngine
 from src.ranking.ranker import rerank_candidates
 from src.ranking.deduplicator import deduplicate_candidates
-from src.evaluation.gemini_evaluator import GeminiEvaluator
+from src.evaluation.llm_evaluator import LLMEvaluator
 
 
 class SearchPipeline:
@@ -21,22 +21,27 @@ class SearchPipeline:
             ↓
         Final Ranking
             ↓
-        Gemini Evidence Evaluation
+        LLM Evidence Evaluation
             ↓
         Final Search Result
+
+    LLM Provider Strategy:
+        Cache → Groq → Gemini Fallback
     """
 
     def __init__(
         self,
         artifact_dir="artifacts",
+        groq_model="openai/gpt-oss-120b",
         gemini_model="gemini-3.6-flash"
     ):
         self.engine = RetrievalEngine(
             artifact_dir
         )
 
-        self.evaluator = GeminiEvaluator(
-            model_name=gemini_model
+        self.evaluator = LLMEvaluator(
+            groq_model=groq_model,
+            gemini_model=gemini_model
         )
 
     def search(
@@ -49,11 +54,14 @@ class SearchPipeline:
         """
         Run the complete talent search pipeline.
 
-        Gemini evaluation is treated as an optional enrichment step.
-        If Gemini is unavailable because of quota/rate limits or
-        another evaluation error, retrieval and ranking results are
-        still returned.
+        LLM evaluation is an optional enrichment layer.
+        Retrieval and ranking remain available even if
+        both LLM providers fail.
         """
+
+        # =====================================================
+        # 1. Validate input
+        # =====================================================
 
         if not isinstance(
             query,
@@ -70,9 +78,24 @@ class SearchPipeline:
                 "Query cannot be empty."
             )
 
-        # ---------------------------------------------------------
-        # 1. Retrieve candidate chunks
-        # ---------------------------------------------------------
+        if top_k_chunks < 1:
+            raise ValueError(
+                "top_k_chunks must be at least 1."
+            )
+
+        if top_k_candidates < 1:
+            raise ValueError(
+                "top_k_candidates must be at least 1."
+            )
+
+        if final_top_k < 1:
+            raise ValueError(
+                "final_top_k must be at least 1."
+            )
+
+        # =====================================================
+        # 2. Retrieve candidate chunks
+        # =====================================================
 
         retrieved_candidates = (
             self.engine.retrieve_candidates(
@@ -82,9 +105,9 @@ class SearchPipeline:
             )
         )
 
-        # ---------------------------------------------------------
-        # 2. Load full resume text
-        # ---------------------------------------------------------
+        # =====================================================
+        # 3. Load full resume text
+        # =====================================================
 
         for candidate in retrieved_candidates:
 
@@ -98,18 +121,18 @@ class SearchPipeline:
                 profile["resume_text"]
             )
 
-        # ---------------------------------------------------------
-        # 3. Hybrid ranking
-        # ---------------------------------------------------------
+        # =====================================================
+        # 4. Hybrid ranking
+        # =====================================================
 
         ranked_candidates = rerank_candidates(
             retrieved_candidates,
             query
         )
 
-        # ---------------------------------------------------------
-        # 4. Deduplicate candidates
-        # ---------------------------------------------------------
+        # =====================================================
+        # 5. Deduplicate candidates
+        # =====================================================
 
         unique_candidates = (
             deduplicate_candidates(
@@ -117,9 +140,9 @@ class SearchPipeline:
             )
         )
 
-        # ---------------------------------------------------------
-        # 5. Assign final ranking
-        # ---------------------------------------------------------
+        # =====================================================
+        # 6. Assign final ranking
+        # =====================================================
 
         for rank, candidate in enumerate(
             unique_candidates,
@@ -127,91 +150,150 @@ class SearchPipeline:
         ):
             candidate["final_rank"] = rank
 
-        # ---------------------------------------------------------
-        # 6. Select final candidates
-        # ---------------------------------------------------------
+        # =====================================================
+        # 7. Select final candidates
+        # =====================================================
 
         final_candidates = (
             unique_candidates[:final_top_k]
         )
 
-        # ---------------------------------------------------------
-        # 7. Build base search result
-        # ---------------------------------------------------------
+        # =====================================================
+        # 8. Prepare evaluator input
+        # =====================================================
 
         search_results = {
             "query": query,
             "candidates": final_candidates
         }
 
-        # ---------------------------------------------------------
-        # 8. Gemini evidence evaluation
-        # ---------------------------------------------------------
+        # =====================================================
+        # 9. LLM Evidence Evaluation
+        # =====================================================
 
-        gemini_evaluation = None
-        gemini_source = "unavailable"
+        llm_evaluation = None
+        llm_source = "unavailable"
+        llm_error = None
         cache_key = None
-        gemini_error = None
+        cached_source = None
 
         try:
 
-            gemini_result = (
+            llm_result = (
                 self.evaluator.evaluate(
-                    query,
-                    search_results
+                    recruiter_query=query,
+                    search_results=search_results
                 )
             )
 
-            gemini_evaluation = (
-                gemini_result.get(
+            llm_evaluation = (
+                llm_result.get(
                     "evaluation"
                 )
             )
 
-            gemini_source = (
-                gemini_result.get(
+            llm_source = (
+                llm_result.get(
                     "source",
-                    "live"
+                    "unavailable"
                 )
             )
 
             cache_key = (
-                gemini_result.get(
+                llm_result.get(
                     "cache_key"
                 )
             )
 
+            cached_source = (
+                llm_result.get(
+                    "cached_source"
+                )
+            )
+
+            # -------------------------------------------------
+            # Groq failed but Gemini fallback succeeded.
+            # Keep the Groq error for observability.
+            # -------------------------------------------------
+
+            if llm_result.get(
+                "groq_error"
+            ):
+
+                llm_error = (
+                    "Groq failed; "
+                    "Gemini fallback succeeded. "
+                    f"Groq error: "
+                    f"{llm_result['groq_error']}"
+                )
+
         except Exception as exc:
 
-            # Gemini is an enrichment layer.
-            # Retrieval and ranking must remain available
-            # even when Gemini is temporarily unavailable.
+            # -------------------------------------------------
+            # LLM is an enrichment layer.
+            # Retrieval and ranking remain valid.
+            # -------------------------------------------------
 
-            gemini_error = str(exc)
+            llm_error = str(
+                exc
+            )
 
-            gemini_source = "unavailable"
+            llm_source = "unavailable"
 
-        # ---------------------------------------------------------
-        # 9. Return structured result
-        # ---------------------------------------------------------
+        # =====================================================
+        # 10. Build final structured result
+        # =====================================================
 
         return {
             "query": query,
+
             "retrieved_count": len(
                 retrieved_candidates
             ),
+
             "ranked_count": len(
                 ranked_candidates
             ),
+
             "unique_count": len(
                 unique_candidates
             ),
+
             "final_count": len(
                 final_candidates
             ),
+
             "candidates": final_candidates,
-            "gemini_evaluation": gemini_evaluation,
-            "gemini_source": gemini_source,
-            "gemini_error": gemini_error,
-            "cache_key": cache_key
+
+            # -------------------------------------------------
+            # New provider-neutral fields
+            # -------------------------------------------------
+
+            "llm_evaluation":
+                llm_evaluation,
+
+            "llm_source":
+                llm_source,
+
+            "llm_error":
+                llm_error,
+
+            "cached_source":
+                cached_source,
+
+            "cache_key":
+                cache_key,
+
+            # -------------------------------------------------
+            # Backward compatibility
+            # -------------------------------------------------
+
+            "gemini_evaluation":
+                llm_evaluation,
+
+            "gemini_source":
+                llm_source,
+
+            "gemini_error":
+                llm_error
         }
